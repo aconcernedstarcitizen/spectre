@@ -299,7 +299,7 @@ func (a *Automation) inspectPage() {
 	fmt.Println("   3. Click the inspector tool (top-left)")
 	fmt.Println("   4. Click the element you want")
 	fmt.Println("   5. Right-click in DevTools → Copy → Copy selector")
-	fmt.Println("======================\n")
+	fmt.Println("======================")
 }
 
 // takeScreenshot saves a screenshot of the current page
