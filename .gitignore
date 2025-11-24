@@ -1,0 +1,37 @@
+# Binaries
+specter
+specter.exe
+*.exe
+build/
+dist/
+
+# Go
+*.o
+*.a
+*.so
+go.sum
+
+# Configuration (may contain sensitive URLs or settings)
+config.yaml
+
+# Browser profile data
+browser-profile/
+specter-data/
+.specter/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Screenshots from testing
+screenshot_*.png

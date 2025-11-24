@@ -1,0 +1,134 @@
+# Specter Configuration File
+# Copy this to config.yaml and customize for your needs
+
+# Direct URL to the ship/item you want to purchase
+# Example: https://robertsspaceindustries.com/pledge/ships/aegis-idris/Idris-M
+# Example: https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Aurora-ES-10-Year
+item_url: ""
+
+# Browser profile path (where cookies/login session are saved)
+# Leave empty to use default: ~/.specter/browser-profile
+browser_profile_path: ""
+
+# Browser type: chrome, edge, or firefox
+browser_type: "chrome"
+
+# === TIMING CONFIGURATION ===
+
+# Page load timeout in seconds
+page_load_timeout: 30
+
+# Random delay between actions (in seconds)
+# The app will wait between min_delay and max_delay before each action
+# Recommended for limited ships: 0.3-0.5 seconds
+min_delay_between: 0.5
+max_delay_between: 1.0
+
+# Delay before starting checkout process (seconds)
+# Gives you time to see the page loaded
+checkout_ready_delay: 2
+
+# === RETRY CONFIGURATION ===
+
+# Maximum number of retry attempts if checkout fails
+# Set to 0 to disable retries (single attempt only)
+# Recommended for limited ships: 30 attempts
+max_retries: 30
+
+# Random delay between retry attempts (in seconds)
+# Fast retries optimized for limited-time items
+retry_delay_min: 0.4
+retry_delay_max: 0.8
+
+# === VIEWPORT CONFIGURATION ===
+
+# Browser viewport size (desktop mode recommended)
+# RSI store requires desktop viewport for store credit to appear
+# Default: 1920x1080 (Full HD desktop)
+viewport_width: 1920
+viewport_height: 1080
+
+# === BROWSER BEHAVIOR ===
+
+# Run browser in headless mode (no visible window)
+# Set to false to see what's happening
+headless: false
+
+# Keep browser open after checkout completes
+# Useful for verifying the purchase
+keep_browser_open: true
+
+# === STORE CREDIT ===
+
+# Automatically apply store credit during checkout
+# The amount is auto-detected from the item price on the store page
+# Example: If item costs $20.00, the app will automatically enter $20.00 in store credit
+auto_apply_credit: true
+
+# === CART BEHAVIOR ===
+
+# Skip adding item to cart (assumes item is already in cart from previous attempt)
+# Useful for wave-based limited ship sales where checkout fails but item remains in cart
+# When enabled, goes directly to cart page and proceeds with checkout
+# Can also use command line: ./specter -skip-cart
+skip_add_to_cart: false
+
+# === TESTING & DEBUG OPTIONS ===
+
+# Dry run mode - stops before final purchase (for testing)
+# Goes through entire checkout flow but stops before clicking final "I agree" button
+# HIGHLY RECOMMENDED: Test with dry_run: true first!
+dry_run: false
+
+# Interactive mode - pauses at each step for manual review
+# You can inspect page elements, type 'inspect' or 'screenshot', then press Enter to continue
+interactive: false
+
+# Debug mode - shows detailed logging of element discovery
+# Displays all selectors tried and element search process
+debug_mode: false
+
+# === CSS SELECTORS ===
+
+# CSS Selectors for page elements
+# Customize these if the website changes its structure
+# RSI-specific selectors are already configured
+selectors:
+  # Item page: Add to cart button
+  add_to_cart_button: ".m-storeAction__button"
+
+  # Cart page: Icons and navigation
+  cart_icon: ".cart-icon, .shopping-cart, [data-testid='cart']"
+
+  # Cart page: Checkout button (NEEDS TO BE FOUND)
+  # Use browser DevTools (F12) to find the correct selector
+  checkout_button: ".checkout-button, .btn-checkout, button:contains('Checkout')"
+
+  # Checkout page: Store credit "Add" button
+  apply_credit_button: ".m-inputBase__endOverlay button[data-cy-id='button']"
+
+  # Checkout page: Terms agreement checkbox
+  agree_checkbox: "input[type='checkbox']"
+
+  # Checkout page: Final "Proceed to pay" button
+  final_checkout_button: "button[data-cy-id='__place-order-button']"
+
+# === RECOMMENDED CONFIGURATIONS ===
+
+# For testing with Aurora ES ($20 ship):
+# item_url: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Aurora-ES-10-Year"
+# dry_run: true
+# interactive: true
+# debug_mode: true
+
+# For production use with limited-time ships:
+# item_url: "https://robertsspaceindustries.com/pledge/ships/..."
+# max_retries: 30
+# retry_delay_min: 0.4
+# retry_delay_max: 0.8
+# min_delay_between: 0.3
+# max_delay_between: 0.5
+# dry_run: false
+# interactive: false
+# debug_mode: false
+# headless: false  # or true for slightly more speed
