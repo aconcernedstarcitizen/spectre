@@ -478,19 +478,26 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 			window.__specterDebug = 'ready';
 
 			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
-				console.log('[Specter] reCAPTCHA callback invoked, token type:', typeof token, 'value:', token);
+				console.log('[Specter] ===== reCAPTCHA CALLBACK =====');
+				console.log('[Specter] Token type:', typeof token);
+				console.log('[Specter] Token value:', token);
+				console.log('[Specter] Token is null?', token === null);
+				console.log('[Specter] Token is undefined?', token === undefined);
+				console.log('[Specter] Token length:', token ? token.length : 'N/A');
 
 				if (token && typeof token === 'string' && token.length > 10) {
-					console.log('[Specter] Valid token received:', token.substring(0, 50) + '...');
+					console.log('[Specter] ✓ Valid token received:', token.substring(0, 50) + '...');
 					window.__specterDebug = 'success';
 					window.__specterToken = token;
 				} else {
-					console.log('[Specter] Invalid/null token received - reCAPTCHA likely detected automation');
+					console.log('[Specter] ✗ Invalid/null token - likely low reCAPTCHA score (automation detected)');
 					window.__specterDebug = 'null_token';
-					window.__specterError = 'reCAPTCHA returned null/empty token (automation detected)';
+					window.__specterError = 'reCAPTCHA returned null/empty token (low score - automation detected)';
 				}
 			}).catch(function(err) {
-				console.log('[Specter] reCAPTCHA error:', err);
+				console.log('[Specter] ===== reCAPTCHA ERROR =====');
+				console.log('[Specter] Error:', err);
+				console.log('[Specter] Error toString:', err.toString());
 				window.__specterDebug = 'error: ' + err.toString();
 				window.__specterError = err.toString();
 			});

@@ -267,9 +267,74 @@ func (a *Automation) waitForLogin() error {
 	if a.config.RecaptchaSiteKey != "" {
 		fmt.Println("🔐 Pre-loading reCAPTCHA Enterprise...")
 		a.preloadRecaptcha()
+
+		fmt.Println("🎭 Building interaction history for reCAPTCHA scoring...")
+		a.buildInteractionHistory()
 	}
 
 	return nil
+}
+
+func (a *Automation) buildInteractionHistory() {
+	for round := 0; round < 3; round++ {
+		movements := 4 + a.rand.Intn(5)
+		for i := 0; i < movements; i++ {
+			x := a.rand.Intn(1200) + 100
+			y := a.rand.Intn(700) + 100
+
+			a.page.Eval(fmt.Sprintf(`() => {
+				var event = new MouseEvent('mousemove', {
+					view: window,
+					bubbles: true,
+					cancelable: true,
+					clientX: %d,
+					clientY: %d
+				});
+				document.dispatchEvent(event);
+			}`, x, y))
+
+			time.Sleep(time.Duration(40+a.rand.Intn(80)) * time.Millisecond)
+		}
+
+		if round < 2 {
+			scrollAmount := (a.rand.Intn(3) - 1) * (100 + a.rand.Intn(150))
+			a.page.Eval(fmt.Sprintf(`() => window.scrollBy(0, %d)`, scrollAmount))
+		}
+
+		if a.rand.Float64() < 0.5 {
+			clickX := a.rand.Intn(1000) + 200
+			clickY := a.rand.Intn(600) + 200
+
+			a.page.Eval(fmt.Sprintf(`() => {
+				var down = new MouseEvent('mousedown', {
+					view: window,
+					bubbles: true,
+					cancelable: true,
+					clientX: %d,
+					clientY: %d
+				});
+				document.dispatchEvent(down);
+			}`, clickX, clickY))
+
+			time.Sleep(time.Duration(60+a.rand.Intn(80)) * time.Millisecond)
+
+			a.page.Eval(fmt.Sprintf(`() => {
+				var up = new MouseEvent('mouseup', {
+					view: window,
+					bubbles: true,
+					cancelable: true,
+					clientX: %d,
+					clientY: %d
+				});
+				document.dispatchEvent(up);
+			}`, clickX, clickY))
+		}
+
+		time.Sleep(time.Duration(300+a.rand.Intn(500)) * time.Millisecond)
+	}
+
+	a.debugLog("Built ~3 seconds of interaction history with mouse movements, scrolls, and clicks")
+	fmt.Println("✓ Interaction history established")
 }
 
 func (a *Automation) preloadRecaptcha() {
