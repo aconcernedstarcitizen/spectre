@@ -426,11 +426,21 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	startScript := fmt.Sprintf(`() => {
 		window.__specterToken = null;
 		window.__specterError = null;
+		window.__specterDebug = 'init';
+
+		console.log('[Specter] Starting reCAPTCHA token generation...');
 
 		grecaptcha.enterprise.ready(function() {
+			console.log('[Specter] grecaptcha.enterprise ready, calling execute...');
+			window.__specterDebug = 'ready';
+
 			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
+				console.log('[Specter] reCAPTCHA token received:', token ? (token.substring(0, 50) + '...') : 'EMPTY/NULL');
+				window.__specterDebug = 'success';
 				window.__specterToken = token;
 			}).catch(function(err) {
+				console.log('[Specter] reCAPTCHA error:', err);
+				window.__specterDebug = 'error: ' + err.toString();
 				window.__specterError = err.toString();
 			});
 		});
@@ -448,9 +458,20 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		time.Sleep(200 * time.Millisecond)
 
 		checkToken, err := page.Eval(`() => window.__specterToken`)
-		if err == nil && checkToken.Value.Str() != "" {
-			token := checkToken.Value.Str()
-			return token, nil
+		if err == nil {
+			tokenStr := checkToken.Value.Str()
+			if f.config.DebugMode && i == 0 {
+				debugState, _ := page.Eval(`() => window.__specterDebug`)
+				debugStr := ""
+				if debugState != nil {
+					debugStr = debugState.Value.Str()
+				}
+				fmt.Printf("[DEBUG] Token check %d: debug_state='%s', token_str='%s'\n", i, debugStr, tokenStr)
+			}
+
+			if tokenStr != "" && tokenStr != "null" && tokenStr != "undefined" {
+				return tokenStr, nil
+			}
 		}
 
 		checkError, err := page.Eval(`() => window.__specterError`)
@@ -460,7 +481,13 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		}
 	}
 
-	return "", fmt.Errorf("reCAPTCHA token generation timeout")
+	debugState, _ := page.Eval(`() => window.__specterDebug`)
+	debugStr := "unknown"
+	if debugState != nil {
+		debugStr = debugState.Value.Str()
+	}
+
+	return "", fmt.Errorf("reCAPTCHA token generation timeout after 5s (debug state: %s)", debugStr)
 }
 
 func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
@@ -511,12 +538,16 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		select {
 		case token := <-tokenChan:
 			recaptchaToken = token
-			if f.config.DebugMode && attemptNum <= 3 && recaptchaToken != "" {
-				tokenPreview := recaptchaToken
-				if len(recaptchaToken) > 50 {
-					tokenPreview = recaptchaToken[:50] + "..."
+			if f.config.DebugMode && attemptNum <= 3 {
+				if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" {
+					tokenPreview := recaptchaToken
+					if len(recaptchaToken) > 50 {
+						tokenPreview = recaptchaToken[:50] + "..."
+					}
+					fmt.Printf("[DEBUG] Attempt %d: Got reCAPTCHA token: %s (len=%d)\n", attemptNum, tokenPreview, len(recaptchaToken))
+				} else {
+					fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA returned invalid/empty token: '%s'\n", attemptNum, recaptchaToken)
 				}
-				fmt.Printf("[DEBUG] Attempt %d: Got reCAPTCHA token: %s\n", attemptNum, tokenPreview)
 			}
 		case err := <-tokenErrChan:
 			if f.config.DebugMode && attemptNum <= 3 {
@@ -537,8 +568,15 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 			},
 		}
 
-		if recaptchaToken != "" {
+		if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" && len(recaptchaToken) > 10 {
 			variables["captcha"] = recaptchaToken
+			if f.config.DebugMode && attemptNum <= 3 {
+				fmt.Printf("[DEBUG] Attempt %d: Including reCAPTCHA token in request\n", attemptNum)
+			}
+		} else {
+			if f.config.DebugMode && attemptNum <= 3 {
+				fmt.Printf("[DEBUG] Attempt %d: NOT including reCAPTCHA (invalid or missing)\n", attemptNum)
+			}
 		}
 
 		request := []GraphQLRequest{
