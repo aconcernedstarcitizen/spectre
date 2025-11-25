@@ -418,28 +418,49 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		return "", nil
 	}
 
-	script := fmt.Sprintf(`() => {
-		return new Promise((resolve, reject) => {
-			if (typeof grecaptcha === 'undefined' || typeof grecaptcha.enterprise === 'undefined') {
-				reject(new Error('reCAPTCHA not loaded'));
-				return;
-			}
-
-			grecaptcha.enterprise.ready(() => {
-				grecaptcha.enterprise.execute('%s', {action: '%s'})
-					.then(token => resolve(token))
-					.catch(err => reject(err));
-			});
-		});
-	}`, f.config.RecaptchaSiteKey, action)
-
-	result, err := page.Eval(script)
-	if err != nil {
-		return "", fmt.Errorf("reCAPTCHA execution failed: %w", err)
+	checkReady, err := page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
+	if err != nil || !checkReady.Value.Bool() {
+		return "", fmt.Errorf("reCAPTCHA not loaded on page")
 	}
 
-	token := result.Value.Str()
-	return token, nil
+	startScript := fmt.Sprintf(`() => {
+		window.__specterToken = null;
+		window.__specterError = null;
+
+		grecaptcha.enterprise.ready(function() {
+			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
+				window.__specterToken = token;
+			}).catch(function(err) {
+				window.__specterError = err.toString();
+			});
+		});
+
+		return 'started';
+	}`, f.config.RecaptchaSiteKey, action)
+
+	_, err = page.Eval(startScript)
+	if err != nil {
+		return "", fmt.Errorf("failed to start reCAPTCHA execution: %w", err)
+	}
+
+	maxAttempts := 25
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(200 * time.Millisecond)
+
+		checkToken, err := page.Eval(`() => window.__specterToken`)
+		if err == nil && checkToken.Value.Str() != "" {
+			token := checkToken.Value.Str()
+			return token, nil
+		}
+
+		checkError, err := page.Eval(`() => window.__specterError`)
+		if err == nil && checkError.Value.Str() != "" {
+			errMsg := checkError.Value.Str()
+			return "", fmt.Errorf("reCAPTCHA execution error: %s", errMsg)
+		}
+	}
+
+	return "", fmt.Errorf("reCAPTCHA token generation timeout")
 }
 
 func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {

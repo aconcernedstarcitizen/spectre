@@ -273,46 +273,46 @@ func (a *Automation) waitForLogin() error {
 }
 
 func (a *Automation) preloadRecaptcha() {
-	script := fmt.Sprintf(`
-(function() {
-	if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined') {
-		console.log('[Specter] reCAPTCHA already loaded');
-		return;
-	}
-
-	const script = document.createElement('script');
-	script.src = 'https://www.google.com/recaptcha/enterprise.js?render=%s';
-	script.async = true;
-	script.defer = true;
-	script.onload = function() {
-		console.log('[Specter] reCAPTCHA Enterprise loaded successfully');
-	};
-	script.onerror = function() {
-		console.log('[Specter] reCAPTCHA Enterprise failed to load');
-	};
-	document.head.appendChild(script);
-})();
-`, a.config.RecaptchaSiteKey)
-
-	_, err := a.page.Eval(script)
-	if err != nil {
-		a.debugLog("Warning: Failed to pre-load reCAPTCHA: %v", err)
+	checkExisting, err := a.page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
+	if err == nil && checkExisting.Value.Bool() {
+		fmt.Println("✓ reCAPTCHA Enterprise already loaded")
+		a.debugLog("reCAPTCHA already present on page")
 		return
 	}
 
-	time.Sleep(2 * time.Second)
+	scriptURL := fmt.Sprintf("https://www.google.com/recaptcha/enterprise.js?render=%s", a.config.RecaptchaSiteKey)
 
-	readyCheck, err := a.page.Eval(`() => {
-		return typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined';
-	}`)
+	injectScript := fmt.Sprintf(`() => {
+		var script = document.createElement('script');
+		script.src = '%s';
+		script.id = 'specter-recaptcha';
+		document.head.appendChild(script);
+		return true;
+	}`, scriptURL)
 
-	if err == nil && readyCheck.Value.Bool() {
-		fmt.Println("✓ reCAPTCHA Enterprise ready")
-		a.debugLog("reCAPTCHA loaded and ready for token generation")
-	} else {
-		fmt.Println("⚠️  reCAPTCHA may not be fully loaded yet (will retry during checkout)")
-		a.debugLog("reCAPTCHA ready check failed: %v", err)
+	_, err = a.page.Eval(injectScript)
+	if err != nil {
+		a.debugLog("Warning: Failed to inject reCAPTCHA script: %v", err)
+		fmt.Println("⚠️  reCAPTCHA injection failed (will retry during checkout)")
+		return
 	}
+
+	a.debugLog("reCAPTCHA script injected, waiting for load...")
+
+	maxWait := 5
+	for i := 0; i < maxWait; i++ {
+		time.Sleep(1 * time.Second)
+
+		readyCheck, err := a.page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
+		if err == nil && readyCheck.Value.Bool() {
+			fmt.Println("✓ reCAPTCHA Enterprise ready")
+			a.debugLog("reCAPTCHA loaded successfully after %d seconds", i+1)
+			return
+		}
+	}
+
+	fmt.Println("⚠️  reCAPTCHA did not load in time (will retry during checkout)")
+	a.debugLog("reCAPTCHA load timeout after %d seconds", maxWait)
 }
 
 
