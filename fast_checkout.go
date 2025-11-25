@@ -619,19 +619,24 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 	retryDeadline := startTime.Add(time.Duration(totalWindow) * time.Second)
 	attemptNum := 0
 
-	mutation := `mutation AddCartMultiItemMutation($query: [CartAddInput!], $captcha: String) {
+	mutation := `mutation AddCartMultiItemMutation($query: [CartAddInput!], $token: String, $mark: String) {
   store(name: "pledge") {
     cart {
       mutations {
-        addMany(query: $query, captcha: $captcha) {
+        addMany(query: $query, token: $token, mark: $mark) {
           count
           resources {
             id
             title
+            __typename
           }
+          __typename
         }
+        __typename
       }
+      __typename
     }
+    __typename
   }
 }`
 
@@ -680,6 +685,8 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 			}
 		}
 
+		unixTimestamp := fmt.Sprintf("%d", time.Now().Unix())
+
 		variables := map[string]interface{}{
 			"query": []map[string]interface{}{
 				{
@@ -687,16 +694,17 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 					"skuId": skuID,
 				},
 			},
+			"mark": unixTimestamp,
 		}
 
 		if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" && len(recaptchaToken) > 10 {
-			variables["captcha"] = recaptchaToken
+			variables["token"] = recaptchaToken
 			if f.config.DebugMode && attemptNum <= 3 {
-				fmt.Printf("[DEBUG] Attempt %d: Including reCAPTCHA token in request\n", attemptNum)
+				fmt.Printf("[DEBUG] Attempt %d: Including reCAPTCHA token as 'token' with mark=%s\n", attemptNum, unixTimestamp)
 			}
 		} else {
 			if f.config.DebugMode && attemptNum <= 3 {
-				fmt.Printf("[DEBUG] Attempt %d: NOT including reCAPTCHA (invalid or missing)\n", attemptNum)
+				fmt.Printf("[DEBUG] Attempt %d: NOT including reCAPTCHA token (invalid or missing), mark=%s\n", attemptNum, unixTimestamp)
 			}
 		}
 
@@ -1125,6 +1133,7 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
     cart {
       mutations {
         validate(mark: $mark, token: $token)
+        __typename
       }
       flow {
         steps {
@@ -1132,15 +1141,21 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
           action
           finalStep
           active
+          __typename
         }
         current {
           orderCreated
+          __typename
         }
+        __typename
       }
+      __typename
     }
     order {
       slug
+      __typename
     }
+    __typename
   }
 }`
 
