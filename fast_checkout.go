@@ -435,9 +435,17 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 			window.__specterDebug = 'ready';
 
 			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
-				console.log('[Specter] reCAPTCHA token received:', token ? (token.substring(0, 50) + '...') : 'EMPTY/NULL');
-				window.__specterDebug = 'success';
-				window.__specterToken = token;
+				console.log('[Specter] reCAPTCHA callback invoked, token type:', typeof token, 'value:', token);
+
+				if (token && typeof token === 'string' && token.length > 10) {
+					console.log('[Specter] Valid token received:', token.substring(0, 50) + '...');
+					window.__specterDebug = 'success';
+					window.__specterToken = token;
+				} else {
+					console.log('[Specter] Invalid/null token received - reCAPTCHA likely detected automation');
+					window.__specterDebug = 'null_token';
+					window.__specterError = 'reCAPTCHA returned null/empty token (automation detected)';
+				}
 			}).catch(function(err) {
 				console.log('[Specter] reCAPTCHA error:', err);
 				window.__specterDebug = 'error: ' + err.toString();
@@ -485,6 +493,10 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	debugStr := "unknown"
 	if debugState != nil {
 		debugStr = debugState.Value.Str()
+	}
+
+	if debugStr == "null_token" {
+		return "", fmt.Errorf("reCAPTCHA v3 Enterprise detected automation and returned null token (stealth mode insufficient)")
 	}
 
 	return "", fmt.Errorf("reCAPTCHA token generation timeout after 5s (debug state: %s)", debugStr)
@@ -552,6 +564,10 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		case err := <-tokenErrChan:
 			if f.config.DebugMode && attemptNum <= 3 {
 				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA error (continuing): %v\n", attemptNum, err)
+			}
+			if strings.Contains(err.Error(), "automation detected") && attemptNum == 1 {
+				fmt.Println("⚠️  WARNING: reCAPTCHA v3 Enterprise is detecting automation")
+				fmt.Println("   The script will continue without tokens, but may fail with CFUException")
 			}
 		case <-time.After(5 * time.Second):
 			if f.config.DebugMode && attemptNum <= 3 {
