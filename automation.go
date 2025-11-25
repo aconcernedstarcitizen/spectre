@@ -11,6 +11,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/go-rod/stealth"
 )
 
 type Automation struct {
@@ -164,11 +165,17 @@ func (a *Automation) waitForLogin() error {
 	}
 
 	var err error
-	a.page, err = a.browser.Page(proto.TargetCreateTarget{URL: targetURL})
+	a.page, err = stealth.Page(a.browser)
 	if err != nil {
-		return fmt.Errorf("failed to create page: %w", err)
+		return fmt.Errorf("failed to create stealth page: %w", err)
 	}
 
+	a.debugLog("✓ Stealth mode enabled (anti-bot detection)")
+
+	err = a.page.Navigate(targetURL)
+	if err != nil {
+		return fmt.Errorf("failed to navigate: %w", err)
+	}
 
 	userAgent := "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 	err = a.page.SetUserAgent(&proto.NetworkSetUserAgentOverride{

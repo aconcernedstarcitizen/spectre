@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/proto"
+	"github.com/go-rod/stealth"
 )
 
 type FastCheckout struct {
@@ -257,11 +257,16 @@ func (f *FastCheckout) GetSKUFromBrowser(automation *Automation, itemURL string)
 		incognitoLauncher.Cleanup()
 	}()
 
-	incognitoPage, err := incognitoBrowser.Page(proto.TargetCreateTarget{URL: itemURL})
+	incognitoPage, err := stealth.Page(incognitoBrowser)
 	if err != nil {
-		return "", fmt.Errorf("failed to create incognito page: %w", err)
+		return "", fmt.Errorf("failed to create stealth incognito page: %w", err)
 	}
 	defer incognitoPage.Close()
+
+	err = incognitoPage.Navigate(itemURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to navigate to item page: %w", err)
+	}
 
 	if err := incognitoPage.WaitLoad(); err != nil {
 		return "", fmt.Errorf("incognito page failed to load: %w", err)
@@ -395,35 +400,47 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	}
 
 	if automation == nil || automation.browser == nil {
-		return "", fmt.Errorf("browser not initialized")
+		return "", nil
 	}
 
-	page := automation.browser.MustPage("")
+	page := automation.page
+	if page == nil {
+		return "", nil
+	}
 
-	script := fmt.Sprintf(`
-		new Promise((resolve, reject) => {
+	script := fmt.Sprintf(`() => {
+		return new Promise((resolve) => {
 			if (typeof grecaptcha === 'undefined' || typeof grecaptcha.enterprise === 'undefined') {
 				const script = document.createElement('script');
 				script.src = 'https://www.google.com/recaptcha/enterprise.js?render=%s';
 				script.onload = () => {
-					grecaptcha.enterprise.ready(() => {
-						grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(reject);
-					});
+					setTimeout(() => {
+						grecaptcha.enterprise.ready(() => {
+							grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(() => resolve(''));
+						});
+					}, 500);
 				};
-				script.onerror = () => reject(new Error('Failed to load reCAPTCHA'));
+				script.onerror = () => resolve('');
 				document.head.appendChild(script);
 			} else {
 				grecaptcha.enterprise.ready(() => {
-					grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(reject);
+					grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(() => resolve(''));
 				});
 			}
-		})
-	`, f.config.RecaptchaSiteKey, f.config.RecaptchaSiteKey, action, f.config.RecaptchaSiteKey, action)
+		});
+	}`, f.config.RecaptchaSiteKey, f.config.RecaptchaSiteKey, action, f.config.RecaptchaSiteKey, action)
 
-	result := page.MustEval(script)
-	token := result.String()
+	result, err := page.Eval(script)
+	if err != nil {
+		if f.config.DebugMode {
+			fmt.Printf("[DEBUG] reCAPTCHA error (continuing without token): %v\n", err)
+		}
+		return "", nil
+	}
 
-	if f.config.DebugMode {
+	token := result.Value.Str()
+
+	if f.config.DebugMode && token != "" {
 		tokenPreview := token
 		if len(token) > 50 {
 			tokenPreview = token[:50] + "..."
@@ -466,11 +483,6 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		attemptNum++
 		attemptStart := time.Now()
 
-		recaptchaToken, err := f.GetRecaptchaToken(automation, f.config.RecaptchaAction)
-		if err != nil {
-			fmt.Printf("⚠️  Warning: Failed to get reCAPTCHA token: %v\n", err)
-		}
-
 		variables := map[string]interface{}{
 			"query": []map[string]interface{}{
 				{
@@ -478,10 +490,6 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 					"skuId": skuID,
 				},
 			},
-		}
-
-		if recaptchaToken != "" {
-			variables["captcha"] = recaptchaToken
 		}
 
 		request := []GraphQLRequest{
@@ -497,7 +505,14 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 			fmt.Printf("[DEBUG] Request body:\n%s\n", string(jsonData))
 		}
 
-		_, err = f.graphqlRequest(request)
+		resp, err := f.graphqlRequest(request)
+
+		if f.config.DebugMode && attemptNum <= 3 {
+			fmt.Printf("[DEBUG] Attempt %d response: %s\n", attemptNum, resp)
+			if err != nil {
+				fmt.Printf("[DEBUG] Attempt %d error: %v\n", attemptNum, err)
+			}
+		}
 
 		if err == nil {
 			elapsed := time.Since(startTime)
