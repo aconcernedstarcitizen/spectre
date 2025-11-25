@@ -404,6 +404,46 @@ func isCaptchaError(err error) bool {
 		strings.Contains(errStr, "CAPTCHA")
 }
 
+func (f *FastCheckout) simulateHumanBehavior(page *rod.Page) {
+	movements := 3 + rand.Intn(4)
+	for i := 0; i < movements; i++ {
+		x := rand.Intn(800) + 100
+		y := rand.Intn(600) + 100
+
+		page.Eval(fmt.Sprintf(`() => {
+			var event = new MouseEvent('mousemove', {
+				view: window,
+				bubbles: true,
+				cancelable: true,
+				clientX: %d,
+				clientY: %d
+			});
+			document.dispatchEvent(event);
+		}`, x, y))
+
+		time.Sleep(time.Duration(30+rand.Intn(70)) * time.Millisecond)
+	}
+
+	scrollAmount := 50 + rand.Intn(100)
+	page.Eval(fmt.Sprintf(`() => window.scrollBy(0, %d)`, scrollAmount))
+
+	time.Sleep(time.Duration(100+rand.Intn(200)) * time.Millisecond)
+
+	page.Eval(`() => {
+		var event = new Event('mousedown', {bubbles: true});
+		document.dispatchEvent(event);
+	}`)
+
+	time.Sleep(time.Duration(50+rand.Intn(100)) * time.Millisecond)
+
+	page.Eval(`() => {
+		var event = new Event('mouseup', {bubbles: true});
+		document.dispatchEvent(event);
+	}`)
+
+	time.Sleep(time.Duration(150+rand.Intn(250)) * time.Millisecond)
+}
+
 func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) (string, error) {
 	if f.config.RecaptchaSiteKey == "" {
 		return "", nil
@@ -422,6 +462,9 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	if err != nil || !checkReady.Value.Bool() {
 		return "", fmt.Errorf("reCAPTCHA not loaded on page")
 	}
+
+	f.simulateHumanBehavior(page)
+
 
 	startScript := fmt.Sprintf(`() => {
 		window.__specterToken = null;
