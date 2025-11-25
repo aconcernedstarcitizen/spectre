@@ -470,14 +470,18 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		window.__specterToken = null;
 		window.__specterError = null;
 		window.__specterDebug = 'init';
+		window.__specterCallbackInvoked = false;
 
 		console.log('[Specter] Starting reCAPTCHA token generation...');
+		console.log('[Specter] Site key:', '%s');
+		console.log('[Specter] Action:', '%s');
 
 		grecaptcha.enterprise.ready(function() {
 			console.log('[Specter] grecaptcha.enterprise ready, calling execute...');
 			window.__specterDebug = 'ready';
 
 			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
+				window.__specterCallbackInvoked = true;
 				console.log('[Specter] ===== reCAPTCHA CALLBACK =====');
 				console.log('[Specter] Token type:', typeof token);
 				console.log('[Specter] Token value:', token);
@@ -504,7 +508,7 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		});
 
 		return 'started';
-	}`, f.config.RecaptchaSiteKey, action)
+	}`, f.config.RecaptchaSiteKey, action, f.config.RecaptchaSiteKey, action)
 
 	_, err = page.Eval(startScript)
 	if err != nil {
@@ -524,7 +528,27 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 				if debugState != nil {
 					debugStr = debugState.Value.Str()
 				}
-				fmt.Printf("[DEBUG] Token check %d: debug_state='%s', token_str='%s'\n", i, debugStr, tokenStr)
+
+				tokenTypeCheck, _ := page.Eval(`() => typeof window.__specterToken`)
+				tokenType := "unknown"
+				if tokenTypeCheck != nil {
+					tokenType = tokenTypeCheck.Value.Str()
+				}
+
+				tokenNullCheck, _ := page.Eval(`() => window.__specterToken === null`)
+				isNull := false
+				if tokenNullCheck != nil {
+					isNull = tokenNullCheck.Value.Bool()
+				}
+
+				callbackCheck, _ := page.Eval(`() => window.__specterCallbackInvoked`)
+				callbackInvoked := false
+				if callbackCheck != nil {
+					callbackInvoked = callbackCheck.Value.Bool()
+				}
+
+				fmt.Printf("[DEBUG] Token check %d: debug_state='%s', token_str='%s', typeof=%s, isNull=%v, callbackInvoked=%v\n",
+					i, debugStr, tokenStr, tokenType, isNull, callbackInvoked)
 			}
 
 			if tokenStr != "" && tokenStr != "null" && tokenStr != "undefined" {
