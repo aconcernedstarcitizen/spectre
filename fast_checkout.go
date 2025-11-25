@@ -394,6 +394,16 @@ func isOutOfStockError(err error) bool {
 		strings.Contains(errStr, "unavailable")
 }
 
+func isCaptchaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "CFUException") ||
+		strings.Contains(errStr, "captcha") ||
+		strings.Contains(errStr, "CAPTCHA")
+}
+
 func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) (string, error) {
 	if f.config.RecaptchaSiteKey == "" {
 		return "", nil
@@ -483,6 +493,39 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		attemptNum++
 		attemptStart := time.Now()
 
+		tokenChan := make(chan string, 1)
+		tokenErrChan := make(chan error, 1)
+
+		go func() {
+			token, err := f.GetRecaptchaToken(automation, f.config.RecaptchaAction)
+			if err != nil {
+				tokenErrChan <- err
+			} else {
+				tokenChan <- token
+			}
+		}()
+
+		var recaptchaToken string
+		select {
+		case token := <-tokenChan:
+			recaptchaToken = token
+			if f.config.DebugMode && attemptNum <= 3 && recaptchaToken != "" {
+				tokenPreview := recaptchaToken
+				if len(recaptchaToken) > 50 {
+					tokenPreview = recaptchaToken[:50] + "..."
+				}
+				fmt.Printf("[DEBUG] Attempt %d: Got reCAPTCHA token: %s\n", attemptNum, tokenPreview)
+			}
+		case err := <-tokenErrChan:
+			if f.config.DebugMode && attemptNum <= 3 {
+				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA error (continuing): %v\n", attemptNum, err)
+			}
+		case <-time.After(3 * time.Second):
+			if f.config.DebugMode && attemptNum <= 3 {
+				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA timeout after 3s (continuing without token)\n", attemptNum)
+			}
+		}
+
 		variables := map[string]interface{}{
 			"query": []map[string]interface{}{
 				{
@@ -490,6 +533,10 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 					"skuId": skuID,
 				},
 			},
+		}
+
+		if recaptchaToken != "" {
+			variables["captcha"] = recaptchaToken
 		}
 
 		request := []GraphQLRequest{
@@ -534,8 +581,17 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		var delay time.Duration
 		isRateLimited := isRateLimitError(err)
 		isOutOfStock := isOutOfStockError(err)
+		isCaptchaFail := isCaptchaError(err)
 
-		if isRateLimited {
+		if isCaptchaFail {
+			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			delay = time.Duration(delayMs) * time.Millisecond
+
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf("🔐 Attempt %d: CAPTCHA verification needed - retrying in %dms (remaining: %v)...\n",
+					attemptNum, delayMs, remaining.Round(time.Second))
+			}
+		} else if isRateLimited {
 			delayMs := 2000 + rand.Intn(3000)
 			delay = time.Duration(delayMs) * time.Millisecond
 			fmt.Printf("⚠️  Attempt %d: Rate limited (4227) - waiting %dms before retry (remaining: %v)...\n",
