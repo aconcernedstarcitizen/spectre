@@ -533,45 +533,50 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	for i := 0; i < maxAttempts; i++ {
 		time.Sleep(200 * time.Millisecond)
 
-		checkToken, err := page.Eval(`() => window.__specterToken`)
-		if err == nil {
-			tokenStr := checkToken.Value.Str()
-			if f.config.DebugMode && i == 0 {
-				debugState, _ := page.Eval(`() => window.__specterDebug`)
-				debugStr := ""
-				if debugState != nil {
-					debugStr = debugState.Value.Str()
+		debugState, _ := page.Eval(`() => window.__specterDebug`)
+		debugStr := ""
+		if debugState != nil {
+			debugStr = debugState.Value.Str()
+		}
+
+		if debugStr == "success" {
+			checkToken, err := page.Eval(`() => window.__specterToken`)
+			if err == nil {
+				tokenStr := checkToken.Value.Str()
+				if tokenStr != "" && tokenStr != "null" && tokenStr != "undefined" && len(tokenStr) > 100 {
+					if f.config.DebugMode {
+						tokenPreview := tokenStr
+						if len(tokenStr) > 50 {
+							tokenPreview = tokenStr[:50] + "..."
+						}
+						fmt.Printf("[DEBUG] Successfully read reCAPTCHA token: %s (len=%d)\n", tokenPreview, len(tokenStr))
+					}
+					return tokenStr, nil
+				} else if f.config.DebugMode && i == 0 {
+					fmt.Printf("[DEBUG] Debug state is 'success' but token is invalid: '%s' (len=%d)\n", tokenStr, len(tokenStr))
 				}
-
-				tokenTypeCheck, _ := page.Eval(`() => typeof window.__specterToken`)
-				tokenType := "unknown"
-				if tokenTypeCheck != nil {
-					tokenType = tokenTypeCheck.Value.Str()
-				}
-
-				tokenNullCheck, _ := page.Eval(`() => window.__specterToken === null`)
-				isNull := false
-				if tokenNullCheck != nil {
-					isNull = tokenNullCheck.Value.Bool()
-				}
-
-				callbackCheck, _ := page.Eval(`() => window.__specterCallbackInvoked`)
-				callbackInvoked := false
-				if callbackCheck != nil {
-					callbackInvoked = callbackCheck.Value.Bool()
-				}
-
-				fmt.Printf("[DEBUG] Token check %d: debug_state='%s', token_str='%s', typeof=%s, isNull=%v, callbackInvoked=%v\n",
-					i, debugStr, tokenStr, tokenType, isNull, callbackInvoked)
-			}
-
-			if tokenStr != "" && tokenStr != "null" && tokenStr != "undefined" {
-				return tokenStr, nil
 			}
 		}
 
+		if f.config.DebugMode && i == 0 {
+			tokenTypeCheck, _ := page.Eval(`() => typeof window.__specterToken`)
+			tokenType := "unknown"
+			if tokenTypeCheck != nil {
+				tokenType = tokenTypeCheck.Value.Str()
+			}
+
+			callbackCheck, _ := page.Eval(`() => window.__specterCallbackInvoked`)
+			callbackInvoked := false
+			if callbackCheck != nil {
+				callbackInvoked = callbackCheck.Value.Bool()
+			}
+
+			fmt.Printf("[DEBUG] Token check %d: debug_state='%s', typeof=%s, callbackInvoked=%v\n",
+				i, debugStr, tokenType, callbackInvoked)
+		}
+
 		checkError, err := page.Eval(`() => window.__specterError`)
-		if err == nil && checkError.Value.Str() != "" {
+		if err == nil && checkError.Value.Str() != "" && checkError.Value.Str() != "null" {
 			errMsg := checkError.Value.Str()
 			return "", fmt.Errorf("reCAPTCHA execution error: %s", errMsg)
 		}
