@@ -480,7 +480,8 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 			console.log('[Specter] grecaptcha.enterprise ready, calling execute...');
 			window.__specterDebug = 'ready';
 
-			grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
+			try {
+				grecaptcha.enterprise.execute('%s', {action: '%s'}).then(function(token) {
 				window.__specterCallbackInvoked = true;
 				console.log('[Specter] ===== reCAPTCHA CALLBACK =====');
 				console.log('[Specter] Token type:', typeof token);
@@ -499,12 +500,25 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 					window.__specterError = 'reCAPTCHA returned null/empty token (low score - automation detected)';
 				}
 			}).catch(function(err) {
-				console.log('[Specter] ===== reCAPTCHA ERROR =====');
+				window.__specterCallbackInvoked = true;
+				console.log('[Specter] ===== reCAPTCHA ERROR (Promise rejected) =====');
 				console.log('[Specter] Error:', err);
 				console.log('[Specter] Error toString:', err.toString());
+				console.log('[Specter] Error message:', err.message);
+				console.log('[Specter] Error stack:', err.stack);
 				window.__specterDebug = 'error: ' + err.toString();
 				window.__specterError = err.toString();
 			});
+			} catch (syncErr) {
+				window.__specterCallbackInvoked = true;
+				console.log('[Specter] ===== reCAPTCHA ERROR (Synchronous) =====');
+				console.log('[Specter] Caught synchronous error:', syncErr);
+				console.log('[Specter] Error toString:', syncErr.toString());
+				console.log('[Specter] Error message:', syncErr.message);
+				console.log('[Specter] Error stack:', syncErr.stack);
+				window.__specterDebug = 'sync_error: ' + syncErr.toString();
+				window.__specterError = syncErr.toString();
+			}
 		});
 
 		return 'started';
