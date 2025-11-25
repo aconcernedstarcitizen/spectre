@@ -342,6 +342,26 @@ func (a *Automation) preloadRecaptcha() {
 	if err == nil && checkExisting.Value.Bool() {
 		fmt.Println("✓ reCAPTCHA Enterprise already loaded")
 		a.debugLog("reCAPTCHA already present on page")
+
+		actualKey, err := a.page.Eval(`() => {
+			const scripts = document.querySelectorAll('script[src*="recaptcha"]');
+			for (let script of scripts) {
+				const match = script.src.match(/render=([^&]+)/);
+				if (match) return match[1];
+			}
+			return null;
+		}`)
+		if err == nil && actualKey != nil && actualKey.Value.Str() != "" {
+			detectedKey := actualKey.Value.Str()
+			a.debugLog("Detected reCAPTCHA site key from page: %s", detectedKey)
+			if detectedKey != a.config.RecaptchaSiteKey {
+				fmt.Printf("⚠️  WARNING: Config key differs from page key!\n")
+				fmt.Printf("   Config:   %s\n", a.config.RecaptchaSiteKey)
+				fmt.Printf("   Detected: %s\n", detectedKey)
+				fmt.Printf("   Update your config.yaml to use the detected key\n")
+			}
+		}
+
 		return
 	}
 
