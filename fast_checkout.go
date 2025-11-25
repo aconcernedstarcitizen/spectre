@@ -419,45 +419,26 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	}
 
 	script := fmt.Sprintf(`() => {
-		return new Promise((resolve) => {
+		return new Promise((resolve, reject) => {
 			if (typeof grecaptcha === 'undefined' || typeof grecaptcha.enterprise === 'undefined') {
-				const script = document.createElement('script');
-				script.src = 'https://www.google.com/recaptcha/enterprise.js?render=%s';
-				script.onload = () => {
-					setTimeout(() => {
-						grecaptcha.enterprise.ready(() => {
-							grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(() => resolve(''));
-						});
-					}, 500);
-				};
-				script.onerror = () => resolve('');
-				document.head.appendChild(script);
-			} else {
-				grecaptcha.enterprise.ready(() => {
-					grecaptcha.enterprise.execute('%s', {action: '%s'}).then(resolve).catch(() => resolve(''));
-				});
+				reject(new Error('reCAPTCHA not loaded'));
+				return;
 			}
+
+			grecaptcha.enterprise.ready(() => {
+				grecaptcha.enterprise.execute('%s', {action: '%s'})
+					.then(token => resolve(token))
+					.catch(err => reject(err));
+			});
 		});
-	}`, f.config.RecaptchaSiteKey, f.config.RecaptchaSiteKey, action, f.config.RecaptchaSiteKey, action)
+	}`, f.config.RecaptchaSiteKey, action)
 
 	result, err := page.Eval(script)
 	if err != nil {
-		if f.config.DebugMode {
-			fmt.Printf("[DEBUG] reCAPTCHA error (continuing without token): %v\n", err)
-		}
-		return "", nil
+		return "", fmt.Errorf("reCAPTCHA execution failed: %w", err)
 	}
 
 	token := result.Value.Str()
-
-	if f.config.DebugMode && token != "" {
-		tokenPreview := token
-		if len(token) > 50 {
-			tokenPreview = token[:50] + "..."
-		}
-		fmt.Printf("[DEBUG] reCAPTCHA token obtained: %s\n", tokenPreview)
-	}
-
 	return token, nil
 }
 
@@ -520,9 +501,9 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 			if f.config.DebugMode && attemptNum <= 3 {
 				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA error (continuing): %v\n", attemptNum, err)
 			}
-		case <-time.After(3 * time.Second):
+		case <-time.After(5 * time.Second):
 			if f.config.DebugMode && attemptNum <= 3 {
-				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA timeout after 3s (continuing without token)\n", attemptNum)
+				fmt.Printf("[DEBUG] Attempt %d: reCAPTCHA timeout after 5s (continuing without token)\n", attemptNum)
 			}
 		}
 

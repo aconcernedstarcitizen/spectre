@@ -264,7 +264,55 @@ func (a *Automation) waitForLogin() error {
 		}
 	}
 
+	if a.config.RecaptchaSiteKey != "" {
+		fmt.Println("🔐 Pre-loading reCAPTCHA Enterprise...")
+		a.preloadRecaptcha()
+	}
+
 	return nil
+}
+
+func (a *Automation) preloadRecaptcha() {
+	script := fmt.Sprintf(`
+(function() {
+	if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined') {
+		console.log('[Specter] reCAPTCHA already loaded');
+		return;
+	}
+
+	const script = document.createElement('script');
+	script.src = 'https://www.google.com/recaptcha/enterprise.js?render=%s';
+	script.async = true;
+	script.defer = true;
+	script.onload = function() {
+		console.log('[Specter] reCAPTCHA Enterprise loaded successfully');
+	};
+	script.onerror = function() {
+		console.log('[Specter] reCAPTCHA Enterprise failed to load');
+	};
+	document.head.appendChild(script);
+})();
+`, a.config.RecaptchaSiteKey)
+
+	_, err := a.page.Eval(script)
+	if err != nil {
+		a.debugLog("Warning: Failed to pre-load reCAPTCHA: %v", err)
+		return
+	}
+
+	time.Sleep(2 * time.Second)
+
+	readyCheck, err := a.page.Eval(`() => {
+		return typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined';
+	}`)
+
+	if err == nil && readyCheck.Value.Bool() {
+		fmt.Println("✓ reCAPTCHA Enterprise ready")
+		a.debugLog("reCAPTCHA loaded and ready for token generation")
+	} else {
+		fmt.Println("⚠️  reCAPTCHA may not be fully loaded yet (will retry during checkout)")
+		a.debugLog("reCAPTCHA ready check failed: %v", err)
+	}
 }
 
 
