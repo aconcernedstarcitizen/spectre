@@ -80,7 +80,6 @@ func TestGetTimeout(t *testing.T) {
 	config := DefaultConfig()
 	automation := NewAutomation(config)
 
-	// Test that timeout is within expected range (200-380ms)
 	for i := 0; i < 100; i++ {
 		timeout := automation.getTimeout()
 		if timeout < 200*time.Millisecond || timeout > 380*time.Millisecond {
@@ -93,7 +92,6 @@ func TestGetClickTimeout(t *testing.T) {
 	config := DefaultConfig()
 	automation := NewAutomation(config)
 
-	// Test that click timeout is within expected range (700-1100ms)
 	for i := 0; i < 100; i++ {
 		timeout := automation.getClickTimeout()
 		if timeout < 700*time.Millisecond || timeout > 1100*time.Millisecond {
@@ -103,8 +101,6 @@ func TestGetClickTimeout(t *testing.T) {
 }
 
 func TestCheckIfTotalIsZero(t *testing.T) {
-	// This test would require a browser instance, so we'll skip it
-	// In a real-world scenario, you'd use a mock or test page
 	t.Skip("Skipping browser-dependent test")
 }
 
@@ -118,7 +114,6 @@ func TestRandomDelay(t *testing.T) {
 	automation.randomDelay()
 	elapsed := time.Since(start)
 
-	// Check that delay is within expected range (100-200ms)
 	if elapsed < 100*time.Millisecond || elapsed > 300*time.Millisecond {
 		t.Errorf("randomDelay() took %v, expected between 100ms and 300ms", elapsed)
 	}
@@ -128,10 +123,8 @@ func TestDebugLog(t *testing.T) {
 	config := DefaultConfig()
 	automation := NewAutomation(config)
 
-	// This should not panic
 	automation.debugLog("Test message: %s", "test")
 
-	// Enable debug mode
 	config.DebugMode = true
 	automation.debugLog("Debug enabled: %d", 42)
 }
@@ -140,7 +133,6 @@ func TestIsBrowserAlive(t *testing.T) {
 	config := DefaultConfig()
 	automation := NewAutomation(config)
 
-	// Without a browser, should return false
 	if automation.isBrowserAlive() {
 		t.Error("isBrowserAlive() should return false when browser is nil")
 	}

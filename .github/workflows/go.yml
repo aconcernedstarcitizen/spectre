@@ -27,13 +27,16 @@ jobs:
       run: go test -v ./...
 
     - name: Build for macOS (amd64)
-      run: GOOS=darwin GOARCH=amd64 go build -o specter-macos-amd64 .
+      run: GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o specter-macos-amd64 .
 
     - name: Build for macOS (arm64)
-      run: GOOS=darwin GOARCH=arm64 go build -o specter-macos-arm64 .
+      run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o specter-macos-arm64 .
 
-    - name: Build for Windows
-      run: GOOS=windows GOARCH=amd64 go build -o specter-windows.exe .
+    - name: Build for Windows (amd64)
+      run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o specter-windows-amd64.exe .
+
+    - name: Build for Linux (amd64)
+      run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o specter-linux-amd64 .
 
     - name: Generate release tag
       id: tag
@@ -50,8 +53,17 @@ jobs:
           **Included binaries:**
           - specter-macos-amd64: macOS Intel binary
           - specter-macos-arm64: macOS Apple Silicon binary
-          - specter-windows.exe: Windows binary
+          - specter-windows-amd64.exe: Windows binary
+          - specter-linux-amd64: Linux binary
+
+          **Features:**
+          - ⚡ Ultra-fast API-based checkout (<1 second)
+          - 🔐 reCAPTCHA v3 Enterprise support
+          - 🎯 Smart retry with rate limit detection
+          - ⏱️  Configurable sale window (start early, continue after)
+          - 💳 Automatic store credit application
         files: |
           specter-macos-amd64
           specter-macos-arm64
-          specter-windows.exe
+          specter-windows-amd64.exe
+          specter-linux-amd64

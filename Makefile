@@ -17,8 +17,16 @@ build: deps
 # Build for all platforms
 build-all: deps
 	@echo "Building for all platforms..."
-	@chmod +x build.sh
-	@./build.sh
+	@mkdir -p build
+	@echo "Building for macOS (amd64)..."
+	@GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o build/specter-macos-amd64 .
+	@echo "Building for macOS (arm64)..."
+	@GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o build/specter-macos-arm64 .
+	@echo "Building for Windows (amd64)..."
+	@GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/specter-windows-amd64.exe .
+	@echo "Building for Linux (amd64)..."
+	@GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/specter-linux-amd64 .
+	@echo "All builds complete! Binaries are in the build/ directory"
 
 # Run the application
 run: build

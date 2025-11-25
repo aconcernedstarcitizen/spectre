@@ -13,7 +13,6 @@ func TestDefaultConfig(t *testing.T) {
 		t.Fatal("DefaultConfig returned nil")
 	}
 
-	// Check default values
 	if config.BrowserType != "chrome" {
 		t.Errorf("Expected BrowserType to be 'chrome', got '%s'", config.BrowserType)
 	}
@@ -30,8 +29,32 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected ViewportHeight to be 1080, got %d", config.ViewportHeight)
 	}
 
-	if config.MaxRetries != 30 {
-		t.Errorf("Expected MaxRetries to be 30, got %d", config.MaxRetries)
+	if config.RetryDurationSeconds != 300 {
+		t.Errorf("Expected RetryDurationSeconds to be 300, got %d", config.RetryDurationSeconds)
+	}
+
+	if config.RetryDelayMinMs != 29 {
+		t.Errorf("Expected RetryDelayMinMs to be 29, got %d", config.RetryDelayMinMs)
+	}
+
+	if config.RetryDelayMaxMs != 107 {
+		t.Errorf("Expected RetryDelayMaxMs to be 107, got %d", config.RetryDelayMaxMs)
+	}
+
+	if config.StartBeforeSaleSeconds != 600 {
+		t.Errorf("Expected StartBeforeSaleSeconds to be 600, got %d", config.StartBeforeSaleSeconds)
+	}
+
+	if config.ContinueAfterSaleSeconds != 900 {
+		t.Errorf("Expected ContinueAfterSaleSeconds to be 900, got %d", config.ContinueAfterSaleSeconds)
+	}
+
+	if config.RecaptchaSiteKey == "" {
+		t.Error("Expected RecaptchaSiteKey to be set")
+	}
+
+	if config.RecaptchaAction != "store/cart/add" {
+		t.Errorf("Expected RecaptchaAction to be 'store/cart/add', got '%s'", config.RecaptchaAction)
 	}
 
 	if config.AutoApplyCredit != true {
@@ -46,14 +69,12 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected KeepBrowserOpen to be true")
 	}
 
-	// Check selectors are set
 	if config.Selectors.AddToCartButton == "" {
 		t.Error("Expected AddToCartButton selector to be set")
 	}
 }
 
 func TestConfigSaveAndLoad(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "specter-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -62,30 +83,27 @@ func TestConfigSaveAndLoad(t *testing.T) {
 
 	configPath := filepath.Join(tempDir, "test-config.yaml")
 
-	// Create a config with custom values
 	config := DefaultConfig()
 	config.ItemURL = "https://example.com/item"
 	config.PageLoadTimeout = 60
 	config.Headless = true
-	config.MaxRetries = 10
+	config.RetryDurationSeconds = 600
+	config.RetryDelayMinMs = 50
+	config.RetryDelayMaxMs = 150
 
-	// Save the config
 	if err := config.Save(configPath); err != nil {
 		t.Fatalf("Failed to save config: %v", err)
 	}
 
-	// Check that the file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Fatal("Config file was not created")
 	}
 
-	// Load the config back
 	loadedConfig, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Verify loaded values match saved values
 	if loadedConfig.ItemURL != config.ItemURL {
 		t.Errorf("Expected ItemURL to be '%s', got '%s'", config.ItemURL, loadedConfig.ItemURL)
 	}
@@ -98,13 +116,20 @@ func TestConfigSaveAndLoad(t *testing.T) {
 		t.Errorf("Expected Headless to be %v, got %v", config.Headless, loadedConfig.Headless)
 	}
 
-	if loadedConfig.MaxRetries != config.MaxRetries {
-		t.Errorf("Expected MaxRetries to be %d, got %d", config.MaxRetries, loadedConfig.MaxRetries)
+	if loadedConfig.RetryDurationSeconds != config.RetryDurationSeconds {
+		t.Errorf("Expected RetryDurationSeconds to be %d, got %d", config.RetryDurationSeconds, loadedConfig.RetryDurationSeconds)
+	}
+
+	if loadedConfig.RetryDelayMinMs != config.RetryDelayMinMs {
+		t.Errorf("Expected RetryDelayMinMs to be %d, got %d", config.RetryDelayMinMs, loadedConfig.RetryDelayMinMs)
+	}
+
+	if loadedConfig.RetryDelayMaxMs != config.RetryDelayMaxMs {
+		t.Errorf("Expected RetryDelayMaxMs to be %d, got %d", config.RetryDelayMaxMs, loadedConfig.RetryDelayMaxMs)
 	}
 }
 
 func TestLoadConfigCreatesDefaultIfMissing(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "specter-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -113,7 +138,6 @@ func TestLoadConfigCreatesDefaultIfMissing(t *testing.T) {
 
 	configPath := filepath.Join(tempDir, "new-config.yaml")
 
-	// Load config from non-existent path
 	config, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
@@ -123,19 +147,16 @@ func TestLoadConfigCreatesDefaultIfMissing(t *testing.T) {
 		t.Fatal("LoadConfig returned nil")
 	}
 
-	// Check that the file was created
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Fatal("Config file was not created automatically")
 	}
 
-	// Verify it has default values
 	if config.BrowserType != "chrome" {
 		t.Errorf("Expected default BrowserType to be 'chrome', got '%s'", config.BrowserType)
 	}
 }
 
 func TestLoadConfigInvalidYAML(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "specter-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -144,13 +165,11 @@ func TestLoadConfigInvalidYAML(t *testing.T) {
 
 	configPath := filepath.Join(tempDir, "invalid-config.yaml")
 
-	// Write invalid YAML
 	invalidYAML := "invalid: yaml: content: [unclosed"
 	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
 		t.Fatalf("Failed to write invalid YAML: %v", err)
 	}
 
-	// Try to load the invalid config
 	_, err = LoadConfig(configPath)
 	if err == nil {
 		t.Error("Expected error when loading invalid YAML, got nil")

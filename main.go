@@ -10,32 +10,24 @@ import (
 )
 
 func main() {
-	// Command line flags
 	configPath := flag.String("config", "config.yaml", "Path to configuration file")
 	url := flag.String("url", "", "Direct URL to the ship/item to purchase (overrides config)")
 	dryRun := flag.Bool("dry-run", false, "Test mode: stop before final purchase")
-	interactive := flag.Bool("interactive", false, "Pause at each step for review")
 	debug := flag.Bool("debug", false, "Enable detailed debug logging")
 	skipCart := flag.Bool("skip-cart", false, "Skip adding to cart (item already in cart)")
 	flag.Parse()
 
-	// Load configuration
 	config, err := LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Override URL if provided via command line
 	if *url != "" {
 		config.ItemURL = *url
 	}
 
-	// Override test/debug flags if provided
 	if *dryRun {
 		config.DryRun = true
-	}
-	if *interactive {
-		config.Interactive = true
 	}
 	if *debug {
 		config.DebugMode = true
@@ -44,7 +36,6 @@ func main() {
 		config.SkipAddToCart = true
 	}
 
-	// Validate we have a URL to work with (not required in skip-cart mode)
 	if config.ItemURL == "" && !config.SkipAddToCart {
 		log.Fatal("No item URL specified. Use -url flag or set it in config.yaml")
 	}
@@ -58,12 +49,8 @@ func main() {
 	}
 	fmt.Printf("Browser Profile: %s\n", config.BrowserProfilePath)
 
-	// Show mode indicators
 	if config.DryRun {
 		fmt.Println("🧪 DRY RUN MODE - Will stop before final purchase")
-	}
-	if config.Interactive {
-		fmt.Println("⏸️  INTERACTIVE MODE - Will pause at each step")
 	}
 	if config.DebugMode {
 		fmt.Println("🔍 DEBUG MODE - Detailed logging enabled")
@@ -71,22 +58,37 @@ func main() {
 	if config.SkipAddToCart {
 		fmt.Println("⏭️  SKIP CART MODE - Item already in cart, skipping add step")
 	}
+
+	fmt.Println("⚡ FAST API MODE - Hybrid authentication + API checkout")
 	fmt.Println()
 
-	// Initialize automation
+	fmt.Println("🌐 Step 1: Setting up browser for authentication...")
 	automation := NewAutomation(config)
 	defer automation.Close()
 
-	// Run the checkout process
-	if err := automation.RunCheckout(); err != nil {
-		log.Fatalf("Checkout failed: %v", err)
+	if err := automation.setupBrowser(); err != nil {
+		log.Fatalf("Failed to setup browser: %v", err)
+	}
+
+	if err := automation.waitForLogin(); err != nil {
+		log.Fatalf("Failed to wait for login: %v", err)
+	}
+
+	fmt.Println("\n⚡ Step 2: Initializing fast API checkout...")
+	fastCheckout, err := NewFastCheckout(config)
+	if err != nil {
+		log.Fatalf("Failed to initialize fast checkout: %v", err)
+	}
+
+	fmt.Println("\n🚀 Step 3: Running lightning-fast API checkout...")
+	if err := fastCheckout.RunFastCheckout(automation); err != nil {
+		log.Fatalf("Fast checkout failed: %v", err)
 	}
 
 	fmt.Println()
 	fmt.Println("✓ Checkout process completed successfully!")
 	fmt.Println()
 
-	// Keep browser open for a bit so user can see the result
 	if config.KeepBrowserOpen {
 		fmt.Println("Keeping browser open for 30 seconds...")
 		time.Sleep(30 * time.Second)
@@ -94,7 +96,6 @@ func main() {
 }
 
 func init() {
-	// Ensure user data directory exists
 	userDataDir := getUserDataDir()
 	if err := os.MkdirAll(userDataDir, 0755); err != nil {
 		log.Printf("Warning: Could not create user data directory: %v", err)

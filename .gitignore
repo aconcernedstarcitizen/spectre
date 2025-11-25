@@ -31,6 +31,13 @@ Thumbs.db
 
 # Logs
 *.log
+api_logs/
 
 # Screenshots from testing
 screenshot_*.png
+
+# Documentation artifacts
+API_ANALYSIS.md
+SPEED_OPTIMIZATION.md
+*_GUIDE.md
+*_FIX.md
