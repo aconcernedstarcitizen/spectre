@@ -540,22 +540,29 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		}
 
 		if debugStr == "success" {
-			checkToken, err := page.Eval(`() => window.__specterToken`)
+			checkToken, err := page.Eval(`() => {
+				if (window.__specterToken && typeof window.__specterToken === 'string') {
+					return window.__specterToken;
+				}
+				return '';
+			}`)
 			if err == nil {
 				tokenStr := checkToken.Value.Str()
-				if tokenStr != "" && tokenStr != "null" && tokenStr != "undefined" && len(tokenStr) > 100 {
+				if tokenStr != "" && len(tokenStr) > 100 {
 					if f.config.DebugMode {
 						tokenPreview := tokenStr
 						if len(tokenStr) > 50 {
 							tokenPreview = tokenStr[:50] + "..."
 						}
-						fmt.Printf("[DEBUG] Successfully read reCAPTCHA token: %s (len=%d)\n", tokenPreview, len(tokenStr))
+						fmt.Printf("[DEBUG] ✅ Successfully read reCAPTCHA token: %s (len=%d)\n", tokenPreview, len(tokenStr))
 					}
 					return tokenStr, nil
 				} else if f.config.DebugMode && i == 0 {
 					fmt.Printf("[DEBUG] Debug state is 'success' but token is invalid: '%s' (len=%d)\n", tokenStr, len(tokenStr))
 				}
 			}
+		} else if f.config.DebugMode && i == 0 {
+			fmt.Printf("[DEBUG] Waiting for token generation... debug_state='%s' (need 'success')\n", debugStr)
 		}
 
 		if f.config.DebugMode && i == 0 {
@@ -575,8 +582,13 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 				i, debugStr, tokenType, callbackInvoked)
 		}
 
-		checkError, err := page.Eval(`() => window.__specterError`)
-		if err == nil && checkError.Value.Str() != "" && checkError.Value.Str() != "null" {
+		checkError, err := page.Eval(`() => {
+			if (window.__specterError && typeof window.__specterError === 'string' && window.__specterError.length > 0) {
+				return window.__specterError;
+			}
+			return '';
+		}`)
+		if err == nil && checkError.Value.Str() != "" {
 			errMsg := checkError.Value.Str()
 			return "", fmt.Errorf("reCAPTCHA execution error: %s", errMsg)
 		}
