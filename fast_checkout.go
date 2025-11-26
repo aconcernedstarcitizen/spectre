@@ -24,6 +24,7 @@ type FastCheckout struct {
 	graphqlURL string
 	cookies   []*http.Cookie
 	csrfToken string
+	userAgent string
 }
 
 type GraphQLRequest struct {
@@ -125,6 +126,13 @@ func (f *FastCheckout) LoadSessionFromBrowser(automation *Automation) error {
 		fmt.Println("⚠️  CSRF token not found, will try without it")
 	}
 
+	userAgentResult, err := automation.page.Eval(`() => navigator.userAgent`)
+	if err == nil && userAgentResult.Value.Str() != "" {
+		f.userAgent = userAgentResult.Value.Str()
+	} else {
+		f.userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+	}
+
 	return nil
 }
 
@@ -136,7 +144,7 @@ func (f *FastCheckout) GetSKUSlugFromURL(itemURL string) (string, error) {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", f.userAgent)
 
 	for _, cookie := range f.cookies {
 		req.AddCookie(cookie)
@@ -1267,8 +1275,10 @@ func (f *FastCheckout) graphqlRequest(requests []GraphQLRequest) (string, error)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", f.userAgent)
 	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Language", "en")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	req.Header.Set("Origin", "https://robertsspaceindustries.com")
 	req.Header.Set("Referer", "https://robertsspaceindustries.com/")
 
@@ -1277,7 +1287,7 @@ func (f *FastCheckout) graphqlRequest(requests []GraphQLRequest) (string, error)
 	}
 
 	if f.csrfToken != "" {
-		req.Header.Set("X-CSRF-Token", f.csrfToken)
+		req.Header.Set("x-csrf-token", f.csrfToken)
 	}
 
 	resp, err := f.client.Do(req)
