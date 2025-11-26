@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -130,11 +131,18 @@ func (a *Automation) debugLog(format string, args ...interface{}) {
 func (a *Automation) setupBrowser() error {
 	fmt.Println("🚀 Launching browser...")
 
+	// Disable leakless mode on Windows to prevent deadlock
+	// See: https://github.com/go-rod/rod/issues/853
+	useLeakless := runtime.GOOS != "windows"
+
 	a.launcher = launcher.New().
 		Headless(a.config.Headless).
 		UserDataDir(a.config.BrowserProfilePath).
-		Leakless(true)
+		Leakless(useLeakless)
 
+	if runtime.GOOS == "windows" {
+		fmt.Println("ℹ️  Running on Windows - leakless mode disabled")
+	}
 
 	url, err := a.launcher.Launch()
 	if err != nil {

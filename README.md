@@ -33,7 +33,8 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 #### For Windows:
 
 1. **Download Specter:**
-   - Download `specter.exe` from the releases page
+   - Go to: **https://github.com/anthropics/specter/releases**
+   - Download the latest `specter.exe` file (look for "Assets" section)
    - Save it to a folder (like `C:\Specter`)
 
 2. **Make sure Chrome is installed:**
@@ -42,7 +43,8 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 #### For Mac:
 
 1. **Download Specter:**
-   - Download `specter` (Mac version) from the releases page
+   - Go to: **https://github.com/anthropics/specter/releases**
+   - Download the latest `specter` file for Mac (look for "Assets" section)
    - Save it to a folder (like `/Users/YourName/Specter`)
 
 2. **Make it runnable:**
@@ -337,6 +339,33 @@ A: Always use **UTC time** and end with `Z`. Convert your local time to UTC firs
 - Check your time conversion (make sure you used UTC, not local time)
 - Make sure the date is correct
 
+**Antivirus is blocking/flagging the program (Kaspersky, Windows Defender, etc.)**
+
+This is a **false positive** - extremely common for browser automation tools. Here's why:
+
+**Why does this happen?**
+- The program launches browsers, controls them remotely, and makes network requests
+- Antivirus software can't tell the difference between legitimate automation and malicious automation
+- The program is NOT code-signed (requires expensive certificate ~$300/year)
+- Common detections: "PDM:Trojan.Bazon.a", "Trojan:Win32/Wacatac", or similar
+
+**The program is safe:**
+- ✅ 100% open source - you can review all code on GitHub
+- ✅ No data collection - everything runs locally
+- ✅ No network access except to RSI's official website
+- ✅ Builds are automated via GitHub Actions (visible in repository)
+
+**How to fix:**
+1. **Kaspersky:** Settings → Threats and Exclusions → Manage Exclusions → Add → Browse to `specter.exe`
+2. **Windows Defender:** Windows Security → Virus & threat protection → Manage settings → Exclusions → Add exclusion → File → Select `specter.exe`
+3. **Other antivirus:** Look for "Exclusions", "Whitelist", or "Trusted Applications" in settings
+
+**Still concerned?**
+- Review the source code yourself on GitHub
+- Build from source instead of using pre-built binaries
+- Check the file hash against the one published on the releases page
+- Run in a virtual machine if you want extra isolation
+
 ### Support
 
 Need help? Check the issues page on GitHub or ask in the Star Citizen community.
@@ -376,7 +405,8 @@ Specter - это инструмент, который автоматически
 #### Для Windows:
 
 1. **Скачайте Specter:**
-   - Скачайте `specter.exe` со страницы релизов
+   - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
+   - Скачайте последний файл `specter.exe` (смотрите в разделе "Assets")
    - Сохраните в папку (например `C:\Specter`)
 
 2. **Убедитесь что Chrome установлен:**
@@ -385,7 +415,8 @@ Specter - это инструмент, который автоматически
 #### Для Mac:
 
 1. **Скачайте Specter:**
-   - Скачайте `specter` (версия для Mac) со страницы релизов
+   - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
+   - Скачайте последний файл `specter` для Mac (смотрите в разделе "Assets")
    - Сохраните в папку (например `/Users/ВашеИмя/Specter`)
 
 2. **Сделайте его запускаемым:**
@@ -679,6 +710,33 @@ continue_after_sale_minutes: 20  # Продолжать попытки X мин�
 - Указанное вами время уже прошло
 - Проверьте конвертацию времени (убедитесь что использовали UTC, а не местное время)
 - Убедитесь что дата правильная
+
+**Антивирус блокирует/помечает программу (Kaspersky, Windows Defender, и др.)**
+
+Это **ложное срабатывание** - крайне распространенная проблема для инструментов автоматизации браузера. Вот почему:
+
+**Почему это происходит?**
+- Программа запускает браузеры, управляет ими удаленно и делает сетевые запросы
+- Антивирусное ПО не может отличить легитимную автоматизацию от вредоносной
+- Программа НЕ имеет цифровой подписи (требует дорогой сертификат ~$300/год)
+- Частые детекции: "PDM:Trojan.Bazon.a", "Trojan:Win32/Wacatac", или похожие
+
+**Программа безопасна:**
+- ✅ 100% открытый исходный код - вы можете проверить весь код на GitHub
+- ✅ Не собирает данные - все работает локально
+- ✅ Нет сетевого доступа кроме официального сайта RSI
+- ✅ Сборки автоматизированы через GitHub Actions (видимы в репозитории)
+
+**Как исправить:**
+1. **Kaspersky:** Настройки → Угрозы и исключения → Управление исключениями → Добавить → Выберите `specter.exe`
+2. **Windows Defender:** Безопасность Windows → Защита от вирусов и угроз → Управление настройками → Исключения → Добавить исключение → Файл → Выберите `specter.exe`
+3. **Другие антивирусы:** Ищите "Исключения", "Белый список", или "Доверенные приложения" в настройках
+
+**Все еще беспокоитесь?**
+- Проверьте исходный код самостоятельно на GitHub
+- Соберите из исходников вместо использования готовых бинарников
+- Проверьте хеш файла с опубликованным на странице релизов
+- Запустите в виртуальной машине если хотите дополнительную изоляцию
 
 ### Поддержка
 
