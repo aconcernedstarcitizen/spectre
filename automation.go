@@ -276,8 +276,9 @@ func (a *Automation) waitForLogin() error {
 }
 
 func (a *Automation) buildInteractionHistory() {
-	for round := 0; round < 3; round++ {
-		movements := 4 + a.rand.Intn(5)
+	// OPTIMIZED: Reduced from ~3 seconds to ~200ms while maintaining variety
+	for round := 0; round < 2; round++ { // Reduced from 3 to 2 rounds
+		movements := 2 + a.rand.Intn(3) // Reduced from 4-8 to 2-4 movements
 		for i := 0; i < movements; i++ {
 			x := a.rand.Intn(1200) + 100
 			y := a.rand.Intn(700) + 100
@@ -293,14 +294,15 @@ func (a *Automation) buildInteractionHistory() {
 				document.dispatchEvent(event);
 			}`, x, y))
 
-			time.Sleep(time.Duration(40+a.rand.Intn(80)) * time.Millisecond)
+			time.Sleep(time.Duration(5+a.rand.Intn(10)) * time.Millisecond) // Reduced from 40-120ms to 5-15ms
 		}
 
-		if round < 2 {
+		if round < 1 { // Only scroll once
 			scrollAmount := (a.rand.Intn(3) - 1) * (100 + a.rand.Intn(150))
 			a.page.Eval(fmt.Sprintf(`() => window.scrollBy(0, %d)`, scrollAmount))
 		}
 
+		// Simplified click - just do one quick click
 		if a.rand.Float64() < 0.5 {
 			clickX := a.rand.Intn(1000) + 200
 			clickY := a.rand.Intn(600) + 200
@@ -316,7 +318,7 @@ func (a *Automation) buildInteractionHistory() {
 				document.dispatchEvent(down);
 			}`, clickX, clickY))
 
-			time.Sleep(time.Duration(60+a.rand.Intn(80)) * time.Millisecond)
+			time.Sleep(time.Duration(10+a.rand.Intn(20)) * time.Millisecond) // Reduced from 60-140ms to 10-30ms
 
 			a.page.Eval(fmt.Sprintf(`() => {
 				var up = new MouseEvent('mouseup', {
@@ -330,11 +332,11 @@ func (a *Automation) buildInteractionHistory() {
 			}`, clickX, clickY))
 		}
 
-		time.Sleep(time.Duration(300+a.rand.Intn(500)) * time.Millisecond)
+		time.Sleep(time.Duration(30+a.rand.Intn(50)) * time.Millisecond) // Reduced from 300-800ms to 30-80ms
 	}
 
-	a.debugLog("Built ~3 seconds of interaction history with mouse movements, scrolls, and clicks")
-	fmt.Println("✓ Interaction history established")
+	a.debugLog("Built ~200ms of interaction history (optimized for speed)")
+	fmt.Println("✓ Interaction history established (fast mode)")
 }
 
 func (a *Automation) preloadRecaptcha() {
@@ -384,20 +386,21 @@ func (a *Automation) preloadRecaptcha() {
 
 	a.debugLog("reCAPTCHA script injected, waiting for load...")
 
-	maxWait := 5
+	// OPTIMIZED: Reduced wait time and check intervals for speed
+	maxWait := 20 // 20 checks of 100ms = 2 seconds max instead of 5 seconds
 	for i := 0; i < maxWait; i++ {
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond) // Check every 100ms instead of 1 second
 
 		readyCheck, err := a.page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
 		if err == nil && readyCheck.Value.Bool() {
 			fmt.Println("✓ reCAPTCHA Enterprise ready")
-			a.debugLog("reCAPTCHA loaded successfully after %d seconds", i+1)
+			a.debugLog("reCAPTCHA loaded successfully after %dms", (i+1)*100)
 			return
 		}
 	}
 
 	fmt.Println("⚠️  reCAPTCHA did not load in time (will retry during checkout)")
-	a.debugLog("reCAPTCHA load timeout after %d seconds", maxWait)
+	a.debugLog("reCAPTCHA load timeout after 2 seconds")
 }
 
 

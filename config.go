@@ -23,8 +23,11 @@ type Config struct {
 	RetryDelayMinMs      int `yaml:"retry_delay_min_ms"`
 	RetryDelayMaxMs      int `yaml:"retry_delay_max_ms"`
 
-	StartBeforeSaleSeconds   int `yaml:"start_before_sale_seconds"`
-	ContinueAfterSaleSeconds int `yaml:"continue_after_sale_seconds"`
+	// Sale timing configuration
+	StartBeforeSaleMinutes   int `yaml:"start_before_sale_minutes"`   // Start retrying X minutes before sale
+	ContinueAfterSaleMinutes int `yaml:"continue_after_sale_minutes"` // Continue retrying X minutes after sale
+	SaleStartTime            string `yaml:"sale_start_time"`           // Sale start time (RFC3339 format, e.g., "2025-01-15T18:00:00Z")
+	EnableSaleTiming         bool   `yaml:"enable_sale_timing"`        // Enable sale timing mode
 
 	RecaptchaSiteKey string `yaml:"recaptcha_site_key"`
 	RecaptchaAction  string `yaml:"recaptcha_action"`
@@ -62,14 +65,16 @@ func DefaultConfig() *Config {
 		BrowserProfilePath:   filepath.Join(userDataDir, "browser-profile"),
 		BrowserType:          "chrome",
 		PageLoadTimeout:      30,
-		MinDelayBetween:      0.5,
-		MaxDelayBetween:      1.0,
-		CheckoutReadyDelay:   2,
+		MinDelayBetween:      0.1,  // Reduced from 0.5 for speed
+		MaxDelayBetween:      0.3,  // Reduced from 1.0 for speed
+		CheckoutReadyDelay:   1,    // Reduced from 2 for speed
 		RetryDurationSeconds:     300,
-		RetryDelayMinMs:          29,
-		RetryDelayMaxMs:          107,
-		StartBeforeSaleSeconds:   600,
-		ContinueAfterSaleSeconds: 900,
+		RetryDelayMinMs:          5,    // Ultra-fast retries
+		RetryDelayMaxMs:          20,   // Ultra-fast retries
+		StartBeforeSaleMinutes:   10,   // Start 10 minutes before sale
+		ContinueAfterSaleMinutes: 20,   // Continue 20 minutes after sale
+		SaleStartTime:            "",   // Set to RFC3339 format for timed sales
+		EnableSaleTiming:         false, // Disabled by default
 		RecaptchaSiteKey:         "6LcZ-cUpAAAAABTy47-ryVJAsZFocXguqi_FgLlJ",
 		RecaptchaAction:          "store/cart/add",
 		ViewportWidth:            1920,

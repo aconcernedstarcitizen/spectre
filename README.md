@@ -13,11 +13,12 @@
 Specter is a tool that automatically buys limited-edition ships from the Star Citizen store (robertsspaceindustries.com) at lightning speed. When ships sell out in seconds, this gives you the best chance to complete your purchase.
 
 **Key Features:**
-- ⚡ Ultra-fast API-based checkout (under 1 second!)
-- 🔄 Smart retry system - keeps trying for 5 minutes if the ship isn't available yet
-- 💳 Automatic store credit application
-- 🤖 Rate limit detection - automatically backs off if the server is busy
-- 🎯 Launch 5 minutes early - it will wait and keep trying once the sale starts
+- ⚡ **Ultra-fast checkout** - Completes purchase in under 1 second once item is in cart!
+- 🔄 **Aggressive retry system** - Attempts to add items 50-200 times per second with 5-20ms delays
+- ⏰ **Timed Sale Mode** - Automatically starts trying 10 minutes before the sale and continues for 20 minutes after
+- 💳 **Automatic store credit application** - No manual steps needed
+- 🤖 **Smart rate limit handling** - Automatically adjusts if the server is busy
+- 🎯 **Optimized for speed** - Every millisecond counts when competing for limited ships
 
 ### Requirements
 
@@ -75,7 +76,8 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 
 4. **Log in to your RSI account** in this Chrome window
 
-5. **Keep the Chrome window open** - the program will show an error and exit. This is expected!
+5. **The program will say "No item URL specified"** - this is expected!
+   - Just wait in the browser and press ENTER when ready
 
 6. Your login is now saved! Close everything.
 
@@ -114,68 +116,178 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 
 The program will go through the whole process but stop before actually buying. This confirms everything works!
 
-### How to Use During a Sale
+### How to Use - Two Modes
 
-**Launch the program 5 minutes BEFORE the sale starts!**
+Specter has **two modes**: Normal Mode (for immediate purchases) and Timed Sale Mode (for scheduled sales).
 
-#### On Windows:
+---
 
-1. Open Command Prompt
-2. Go to the Specter folder: `cd C:\Specter`
-3. Run: `specter.exe`
-4. Wait! The program will keep trying until the ship becomes available
+#### Normal Mode - For Immediate Purchases
 
-#### On Mac:
+**Use this when:** You want to buy a ship that's available right now, or manually control when to start.
 
-1. Open Terminal
-2. Go to the Specter folder: `cd /Users/YourName/Specter`
-3. Run: `./specter`
-4. Wait! The program will keep trying until the ship becomes available
+**Windows:**
+```
+cd C:\Specter
+specter.exe --url "https://robertsspaceindustries.com/pledge/ships/..."
+```
+
+**Mac:**
+```
+cd /Users/YourName/Specter
+./specter --url "https://robertsspaceindustries.com/pledge/ships/..."
+```
+
+**What happens:**
+1. Chrome opens - log in if needed
+2. **Wait for the ship to be available on the RSI website**
+3. **Press ENTER** when you're ready to start
+4. Program tries to add to cart with ultra-fast retries (5-20ms between attempts)
+5. Once successful, completes checkout in under 1 second
+6. Done! Your order is placed
 
 **What You'll See:**
-
 ```
-⏱️  Will retry for up to 300 seconds if item not available
-⚠️  Attempt 1 failed - retrying in 73ms (remaining: 4m59s)...
-⚠️  Attempt 2 failed - retrying in 91ms (remaining: 4m58s)...
-✓ Added to cart successfully!
-🎉 Success after 15 attempt(s) in 5.2s
+🛒 Adding to cart (API) with retry mechanism...
+⏱️  Will retry for up to 300 seconds
+🔄 Attempt 1 - Time remaining: 4m59s
+🔄 Attempt 50 - Time remaining: 4m58s
+✅ Successfully added to cart after 87 attempts in 2.3s!
+
+➡️  Moving to billing step...
+💰 Applying store credit...
 ✓ ORDER COMPLETED!
+
+⚡ Total checkout time: 847ms
+🏆 ACHIEVED SUB-SECOND CHECKOUT!
 ```
 
-The program will automatically:
-1. Keep trying to add the ship to your cart (until the sale starts)
-2. Apply your store credit
-3. Complete the checkout
-4. Tell you when it's done!
+---
+
+#### Timed Sale Mode - For Scheduled Sales
+
+**Use this when:** You know the exact time a limited ship goes on sale (like Kraken, Idris, etc.)
+
+**What is Timed Sale Mode?**
+- You tell Specter when the sale starts (exact date and time)
+- It **automatically starts trying 10 minutes before** the sale
+- **Hammers the server** with 50-200 attempts per second
+- **Continues for 20 minutes after** the sale starts
+- You don't need to press ENTER or do anything - it's fully automatic!
+
+**How to Use:**
+
+1. **Find out the sale time** - For example: "Kraken sale on January 15, 2025 at 6:00 PM EST"
+
+2. **Convert to UTC time** (use worldtimebuddy.com or Google "EST to UTC")
+   - Example: 6:00 PM EST = 11:00 PM UTC = 23:00
+
+3. **Run with the sale time:**
+
+**Windows:**
+```
+cd C:\Specter
+specter.exe --url "https://robertsspaceindustries.com/pledge/ships/..." --sale-time "2025-01-15T23:00:00Z"
+```
+
+**Mac:**
+```
+cd /Users/YourName/Specter
+./specter --url "https://robertsspaceindustries.com/pledge/ships/..." --sale-time "2025-01-15T23:00:00Z"
+```
+
+**Time Format:** `YYYY-MM-DDTHH:MM:SSZ` (always end with Z for UTC time)
+- January 15, 2025 at 11:00 PM UTC = `2025-01-15T23:00:00Z`
+- December 25, 2024 at 6:30 PM UTC = `2024-12-25T18:30:00Z`
+
+**Customize the timing (optional):**
+```
+specter.exe --url "..." --sale-time "2025-01-15T23:00:00Z" --start-before 15 --continue-after 30
+```
+- `--start-before 15` = Start trying 15 minutes before sale (default: 10)
+- `--continue-after 30` = Keep trying 30 minutes after sale starts (default: 20)
+
+**What happens:**
+1. Chrome opens - log in if needed
+2. Press ENTER to confirm you're logged in
+3. Program waits until 10 minutes before sale
+4. **Automatically starts hammering add-to-cart** with ultra-fast retries
+5. Once item is added, completes checkout in under 1 second
+6. Done!
+
+**What You'll See:**
+```
+╔═══════════════════════════════════════════════════════════╗
+║           TIMED SALE MODE - AGGRESSIVE RETRY              ║
+╚═══════════════════════════════════════════════════════════╝
+
+⏰ Sale starts at: Wed, 15 Jan 2025 23:00:00 UTC
+🚀 Will start retrying at: Wed, 15 Jan 2025 22:50:00 UTC (10 min before)
+⏱️  Will stop retrying at: Wed, 15 Jan 2025 23:20:00 UTC (20 min after)
+
+⏳ Waiting 8m 45s until retry window starts...
+✓ Retry window started!
+
+═══════════════════════════════════════════════════════════
+           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)
+═══════════════════════════════════════════════════════════
+🔄 Attempt 1 - Time remaining: 30m0s
+🔄 Attempt 50 - Time remaining: 29m59s
+🔄 Attempt 100 - Time remaining: 29m59s
+✅ Successfully added to cart after 247 attempts in 4.8s!
+
+═══════════════════════════════════════════════════════════
+           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)
+═══════════════════════════════════════════════════════════
+➡️  Moving to billing step...
+💰 Applying store credit...
+✓ ORDER COMPLETED!
+
+⚡ Total time from first attempt to completion: 5.2s
+```
+
+---
 
 ### Settings You Can Change
 
 Open `config.yaml` to customize:
 
-#### How Long to Keep Trying:
+#### Basic Settings:
 ```yaml
-retry_duration_seconds: 300  # Default is 5 minutes (300 seconds)
-```
-Want to try for longer? Change this to 600 (10 minutes) or more.
-
-#### Use Store Credit:
-```yaml
-auto_apply_credit: true  # Set to false if you want to pay with credit card
+item_url: ""  # Ship URL - can also use --url flag
+auto_apply_credit: true  # Automatically use store credit
+dry_run: false  # Set to true for test mode (doesn't actually buy)
 ```
 
-#### Test Mode (Practice Without Buying):
+#### Retry Settings:
 ```yaml
-dry_run: true  # Set to true to practice, false for real purchases
+retry_duration_seconds: 300  # How long to keep trying (5 minutes default)
+retry_delay_min_ms: 5        # Minimum delay between attempts (5ms - ultra fast!)
+retry_delay_max_ms: 20       # Maximum delay between attempts (20ms)
 ```
+
+#### Timed Sale Settings:
+```yaml
+enable_sale_timing: false  # Set to true to use timed mode via config
+sale_start_time: ""        # e.g., "2025-01-15T23:00:00Z"
+start_before_sale_minutes: 10   # Start trying X minutes before
+continue_after_sale_minutes: 20  # Keep trying X minutes after
+```
+
+**Note:** Using command-line flags (`--sale-time`, `--start-before`, etc.) will override these config settings.
 
 ### Common Questions
 
 **Q: Will this get me banned?**
-A: Using automation tools may violate RSI's Terms of Service. Use at your own risk. This tool is designed to be respectful (human-like delays, rate limit detection), but there's always a risk.
+A: Using automation tools may violate RSI's Terms of Service. Use at your own risk. This tool is designed to be respectful (it detects rate limits and backs off), but there's always a risk.
 
 **Q: How fast is it?**
-A: The checkout process takes less than 1 second once the ship is in your cart. The retry system will keep trying for 5 minutes (or however long you configure) before that.
+A: The checkout completes in **under 1 second** once the ship is in your cart. The retry system attempts **50-200 times per second** with 5-20ms delays, making it extremely competitive for limited sales.
+
+**Q: What's the difference between Normal and Timed Mode?**
+A:
+- **Normal Mode:** You control when to start by pressing ENTER. Good for manual timing or items already available.
+- **Timed Mode:** Fully automatic. You set the sale time and it handles everything - starts early, retries aggressively, completes purchase. No button pressing needed!
 
 **Q: Do I need programming experience?**
 A: No! Just follow the instructions above. If you can open files and type commands, you can use this.
@@ -183,21 +295,24 @@ A: No! Just follow the instructions above. If you can open files and type comman
 **Q: What if it doesn't work?**
 A: Make sure you:
 - Logged in successfully (Step 1)
-- Put the correct ship URL in config.yaml
+- Put the correct ship URL (check it in your browser first)
 - Have enough store credit in your account
 - Have a fast internet connection
+- Used the correct time format for timed mode (ending with Z)
 
 **Q: Can I use this for multiple ships?**
 A: Yes! Create multiple config files (like `carrack.yaml`, `idris.yaml`) with different URLs, then run: `specter.exe --config carrack.yaml`
 
 **Q: The program says "rate limited" - what does that mean?**
-A: The server is busy and asked us to slow down. The program automatically waits longer (2-5 seconds) before trying again. This is normal during busy sales!
+A: The server is busy and asked us to slow down. The program automatically waits 50-150ms (instead of 5-20ms) before trying again. This is normal during busy sales!
+
+**Q: What time zone should I use for timed mode?**
+A: Always use **UTC time** and end with `Z`. Convert your local time to UTC first using worldtimebuddy.com or Google.
 
 ### Troubleshooting
 
 **"No item URL specified"**
-- You forgot to put the ship URL in config.yaml
-- Or the config.yaml file has an error
+- You forgot to put the ship URL in config.yaml OR forgot to use --url flag
 - Make sure the config file is named exactly `config.yaml` (not `config.yaml.example`)
 
 **"Failed to launch browser"**
@@ -208,9 +323,19 @@ A: The server is busy and asked us to slow down. The program automatically waits
 - Your login expired
 - Run the program again and it will open Chrome for you to login
 
+**"Invalid sale start time format"**
+- Make sure you use the correct format: `YYYY-MM-DDTHH:MM:SSZ`
+- Always end with `Z` for UTC time
+- Example: `2025-01-15T23:00:00Z`
+
 **Program exits immediately on Windows**
 - You might need to allow it through Windows Defender
 - Right-click specter.exe → Properties → Unblock → Apply
+
+**"Sale window has already passed"**
+- The time you specified has already happened
+- Check your time conversion (make sure you used UTC, not local time)
+- Make sure the date is correct
 
 ### Support
 
@@ -231,11 +356,12 @@ This tool does not collect any data. Everything runs locally on your computer. Y
 Specter - это инструмент, который автоматически покупает лимитированные корабли из магазина Star Citizen (robertsspaceindustries.com) с молниеносной скоростью. Когда корабли распродаются за секунды, это дает вам лучший шанс завершить покупку.
 
 **Основные возможности:**
-- ⚡ Сверхбыстрое оформление через API (меньше 1 секунды!)
-- 🔄 Умная система повторов - продолжает попытки 5 минут, если корабль еще недоступен
-- 💳 Автоматическое применение store credit
-- 🤖 Определение ограничения запросов - автоматически замедляется, если сервер занят
-- 🎯 Запуск за 5 минут до начала - будет ждать и пытаться, когда начнется продажа
+- ⚡ **Сверхбыстрое оформление** - Завершает покупку менее чем за 1 секунду после добавления в корзину!
+- 🔄 **Агрессивная система повторов** - 50-200 попыток в секунду с задержками 5-20мс
+- ⏰ **Режим по расписанию** - Автоматически начинает попытки за 10 минут до продажи и продолжает 20 минут после
+- 💳 **Автоматическое применение store credit** - Без ручных действий
+- 🤖 **Умная обработка ограничений** - Автоматически подстраивается если сервер занят
+- 🎯 **Оптимизирован для скорости** - Каждая миллисекунда важна при конкуренции за лимитированные корабли
 
 ### Требования
 
@@ -293,7 +419,8 @@ Specter - это инструмент, который автоматически
 
 4. **Войдите в ваш аккаунт RSI** в этом окне Chrome
 
-5. **Оставьте окно Chrome открытым** - программа покажет ошибку и закроется. Это ожидаемо!
+5. **Программа скажет "No item URL specified"** - это ожидаемо!
+   - Просто подождите в браузере и нажмите ENTER когда готовы
 
 6. Ваш вход теперь сохранен! Закройте все.
 
@@ -332,68 +459,178 @@ Specter - это инструмент, который автоматически
 
 Программа пройдет весь процесс но остановится перед реальной покупкой. Это подтверждает что все работает!
 
-### Как использовать во время продажи
+### Как использовать - Два режима
 
-**Запустите программу за 5 минут ДО начала продажи!**
+У Specter есть **два режима**: Обычный режим (для немедленных покупок) и Режим по расписанию (для запланированных продаж).
 
-#### На Windows:
+---
 
-1. Откройте Командную строку
-2. Перейдите в папку Specter: `cd C:\Specter`
-3. Запустите: `specter.exe`
-4. Ждите! Программа будет продолжать попытки пока корабль не станет доступен
+#### Обычный режим - Для немедленных покупок
 
-#### На Mac:
+**Используйте когда:** Хотите купить корабль который доступен прямо сейчас, или контролировать запуск вручную.
 
-1. Откройте Terminal
-2. Перейдите в папку Specter: `cd /Users/ВашеИмя/Specter`
-3. Запустите: `./specter`
-4. Ждите! Программа будет продолжать попытки пока корабль не станет доступен
+**Windows:**
+```
+cd C:\Specter
+specter.exe --url "https://robertsspaceindustries.com/pledge/ships/..."
+```
+
+**Mac:**
+```
+cd /Users/ВашеИмя/Specter
+./specter --url "https://robertsspaceindustries.com/pledge/ships/..."
+```
+
+**Что происходит:**
+1. Открывается Chrome - войдите если нужно
+2. **Дождитесь когда корабль станет доступен на сайте RSI**
+3. **Нажмите ENTER** когда готовы начать
+4. Программа пытается добавить в корзину со сверхбыстрыми повторами (5-20мс между попытками)
+5. После успеха завершает оформление менее чем за 1 секунду
+6. Готово! Ваш заказ размещен
 
 **Что вы увидите:**
-
 ```
-⏱️  Will retry for up to 300 seconds if item not available
-⚠️  Attempt 1 failed - retrying in 73ms (remaining: 4m59s)...
-⚠️  Attempt 2 failed - retrying in 91ms (remaining: 4m58s)...
-✓ Added to cart successfully!
-🎉 Success after 15 attempt(s) in 5.2s
+🛒 Adding to cart (API) with retry mechanism...
+⏱️  Will retry for up to 300 seconds
+🔄 Attempt 1 - Time remaining: 4m59s
+🔄 Attempt 50 - Time remaining: 4m58s
+✅ Successfully added to cart after 87 attempts in 2.3s!
+
+➡️  Moving to billing step...
+💰 Applying store credit...
 ✓ ORDER COMPLETED!
+
+⚡ Total checkout time: 847ms
+🏆 ACHIEVED SUB-SECOND CHECKOUT!
 ```
 
-Программа автоматически:
-1. Будет пытаться добавить корабль в корзину (пока не начнется продажа)
-2. Применит ваш store credit
-3. Завершит оформление
-4. Сообщит вам когда все готово!
+---
+
+#### Режим по расписанию - Для запланированных продаж
+
+**Используйте когда:** Вы знаете точное время когда лимитированный корабль поступит в продажу (как Kraken, Idris, и т.д.)
+
+**Что такое режим по расписанию?**
+- Вы говорите Specter когда начинается продажа (точная дата и время)
+- Он **автоматически начинает попытки за 10 минут до** продажи
+- **Бомбардирует сервер** 50-200 попытками в секунду
+- **Продолжает 20 минут после** начала продажи
+- Вам не нужно нажимать ENTER или что-то делать - все полностью автоматически!
+
+**Как использовать:**
+
+1. **Узнайте время продажи** - Например: "Продажа Kraken 15 января 2025 в 6:00 PM EST"
+
+2. **Конвертируйте в UTC время** (используйте worldtimebuddy.com или Google "EST to UTC")
+   - Пример: 6:00 PM EST = 11:00 PM UTC = 23:00
+
+3. **Запустите со временем продажи:**
+
+**Windows:**
+```
+cd C:\Specter
+specter.exe --url "https://robertsspaceindustries.com/pledge/ships/..." --sale-time "2025-01-15T23:00:00Z"
+```
+
+**Mac:**
+```
+cd /Users/ВашеИмя/Specter
+./specter --url "https://robertsspaceindustries.com/pledge/ships/..." --sale-time "2025-01-15T23:00:00Z"
+```
+
+**Формат времени:** `YYYY-MM-DDTHH:MM:SSZ` (всегда заканчивайте на Z для UTC времени)
+- 15 января 2025 в 11:00 PM UTC = `2025-01-15T23:00:00Z`
+- 25 декабря 2024 в 6:30 PM UTC = `2024-12-25T18:30:00Z`
+
+**Настройка времени (опционально):**
+```
+specter.exe --url "..." --sale-time "2025-01-15T23:00:00Z" --start-before 15 --continue-after 30
+```
+- `--start-before 15` = Начать попытки за 15 минут до продажи (по умолчанию: 10)
+- `--continue-after 30` = Продолжать попытки 30 минут после начала (по умолчанию: 20)
+
+**Что происходит:**
+1. Открывается Chrome - войдите если нужно
+2. Нажмите ENTER для подтверждения что вы вошли
+3. Программа ждет до 10 минут перед продажей
+4. **Автоматически начинает бомбардировку add-to-cart** со сверхбыстрыми повторами
+5. После добавления товара завершает оформление менее чем за 1 секунду
+6. Готово!
+
+**Что вы увидите:**
+```
+╔═══════════════════════════════════════════════════════════╗
+║           TIMED SALE MODE - AGGRESSIVE RETRY              ║
+╚═══════════════════════════════════════════════════════════╝
+
+⏰ Sale starts at: Wed, 15 Jan 2025 23:00:00 UTC
+🚀 Will start retrying at: Wed, 15 Jan 2025 22:50:00 UTC (10 min before)
+⏱️  Will stop retrying at: Wed, 15 Jan 2025 23:20:00 UTC (20 min after)
+
+⏳ Waiting 8m 45s until retry window starts...
+✓ Retry window started!
+
+═══════════════════════════════════════════════════════════
+           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)
+═══════════════════════════════════════════════════════════
+🔄 Attempt 1 - Time remaining: 30m0s
+🔄 Attempt 50 - Time remaining: 29m59s
+🔄 Attempt 100 - Time remaining: 29m59s
+✅ Successfully added to cart after 247 attempts in 4.8s!
+
+═══════════════════════════════════════════════════════════
+           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)
+═══════════════════════════════════════════════════════════
+➡️  Moving to billing step...
+💰 Applying store credit...
+✓ ORDER COMPLETED!
+
+⚡ Total time from first attempt to completion: 5.2s
+```
+
+---
 
 ### Настройки которые можно изменить
 
 Откройте `config.yaml` для настройки:
 
-#### Как долго продолжать попытки:
+#### Базовые настройки:
 ```yaml
-retry_duration_seconds: 300  # По умолчанию 5 минут (300 секунд)
-```
-Хотите пытаться дольше? Измените на 600 (10 минут) или больше.
-
-#### Использовать Store Credit:
-```yaml
-auto_apply_credit: true  # Установите false если хотите платить кредитной картой
+item_url: ""  # URL корабля - можно также использовать флаг --url
+auto_apply_credit: true  # Автоматически использовать store credit
+dry_run: false  # Установите true для тестового режима (не покупает на самом деле)
 ```
 
-#### Тестовый режим (тренировка без покупки):
+#### Настройки повторов:
 ```yaml
-dry_run: true  # Установите true для тренировки, false для реальных покупок
+retry_duration_seconds: 300  # Как долго пытаться (5 минут по умолчанию)
+retry_delay_min_ms: 5        # Минимальная задержка между попытками (5мс - сверхбыстро!)
+retry_delay_max_ms: 20       # Максимальная задержка между попытками (20мс)
 ```
+
+#### Настройки режима по расписанию:
+```yaml
+enable_sale_timing: false  # Установите true для использования режима через config
+sale_start_time: ""        # например, "2025-01-15T23:00:00Z"
+start_before_sale_minutes: 10   # Начать попытки за X минут до
+continue_after_sale_minutes: 20  # Продолжать попытки X минут после
+```
+
+**Примечание:** Использование флагов командной строки (`--sale-time`, `--start-before`, и т.д.) переопределит эти настройки config.
 
 ### Частые вопросы
 
 **В: Меня забанят за это?**
-О: Использование инструментов автоматизации может нарушать Условия использования RSI. Используйте на свой риск. Этот инструмент разработан быть уважительным (человекоподобные задержки, определение ограничений), но риск всегда есть.
+О: Использование инструментов автоматизации может нарушать Условия использования RSI. Используйте на свой риск. Этот инструмент разработан быть уважительным (определяет ограничения и замедляется), но риск всегда есть.
 
 **В: Насколько это быстро?**
-О: Процесс оформления занимает меньше 1 секунды после того как корабль в корзине. Система повторов будет пытаться 5 минут (или сколько настроите) до этого.
+О: Оформление завершается **менее чем за 1 секунду** после того как корабль в корзине. Система повторов делает **50-200 попыток в секунду** с задержками 5-20мс, что делает его чрезвычайно конкурентоспособным для лимитированных продаж.
+
+**В: В чем разница между Обычным и Режимом по расписанию?**
+О:
+- **Обычный режим:** Вы контролируете когда начать нажатием ENTER. Подходит для ручного контроля времени или уже доступных товаров.
+- **Режим по расписанию:** Полностью автоматический. Вы устанавливаете время продажи и он делает все - начинает рано, агрессивно повторяет, завершает покупку. Нажимать кнопки не нужно!
 
 **В: Нужен ли опыт программирования?**
 О: Нет! Просто следуйте инструкциям выше. Если вы можете открывать файлы и вводить команды, вы можете это использовать.
@@ -401,21 +638,24 @@ dry_run: true  # Установите true для тренировки, false д
 **В: Что если не работает?**
 О: Убедитесь что вы:
 - Успешно вошли (Шаг 1)
-- Вставили правильный URL корабля в config.yaml
+- Вставили правильный URL корабля (проверьте его в браузере сначала)
 - Имеете достаточно store credit в аккаунте
 - Имеете быстрое интернет-соединение
+- Использовали правильный формат времени для режима по расписанию (заканчивающийся на Z)
 
 **В: Можно использовать для нескольких кораблей?**
 О: Да! Создайте несколько config файлов (как `carrack.yaml`, `idris.yaml`) с разными URL, затем запустите: `specter.exe --config carrack.yaml`
 
 **В: Программа говорит "rate limited" - что это значит?**
-О: Сервер занят и попросил нас замедлиться. Программа автоматически ждет дольше (2-5 секунд) перед следующей попыткой. Это нормально во время загруженных продаж!
+О: Сервер занят и попросил нас замедлиться. Программа автоматически ждет 50-150мс (вместо 5-20мс) перед следующей попыткой. Это нормально во время загруженных продаж!
+
+**В: Какой часовой пояс использовать для режима по расписанию?**
+О: Всегда используйте **UTC время** и заканчивайте на `Z`. Сначала конвертируйте ваше местное время в UTC используя worldtimebuddy.com или Google.
 
 ### Решение проблем
 
 **"No item URL specified"**
-- Вы забыли вставить URL корабля в config.yaml
-- Или в файле config.yaml есть ошибка
+- Вы забыли вставить URL корабля в config.yaml ИЛИ забыли использовать флаг --url
 - Убедитесь что файл называется точно `config.yaml` (не `config.yaml.example`)
 
 **"Failed to launch browser"**
@@ -426,9 +666,19 @@ dry_run: true  # Установите true для тренировки, false д
 - Ваш вход истек
 - Запустите программу снова и она откроет Chrome для входа
 
+**"Invalid sale start time format"**
+- Убедитесь что используете правильный формат: `YYYY-MM-DDTHH:MM:SSZ`
+- Всегда заканчивайте на `Z` для UTC времени
+- Пример: `2025-01-15T23:00:00Z`
+
 **Программа сразу закрывается на Windows**
 - Возможно нужно разрешить ее в Windows Defender
 - Правый клик на specter.exe → Свойства → Разблокировать → Применить
+
+**"Sale window has already passed"**
+- Указанное вами время уже прошло
+- Проверьте конвертацию времени (убедитесь что использовали UTC, а не местное время)
+- Убедитесь что дата правильная
 
 ### Поддержка
 

@@ -15,6 +15,9 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Test mode: stop before final purchase")
 	debug := flag.Bool("debug", false, "Enable detailed debug logging")
 	skipCart := flag.Bool("skip-cart", false, "Skip adding to cart (item already in cart)")
+	saleTime := flag.String("sale-time", "", "Sale start time in RFC3339 format (e.g., 2025-01-15T18:00:00Z) - enables timed sale mode")
+	startBefore := flag.Int("start-before", 10, "Minutes to start retrying before sale (default: 10)")
+	continueAfter := flag.Int("continue-after", 20, "Minutes to continue retrying after sale (default: 20)")
 	flag.Parse()
 
 	config, err := LoadConfig(*configPath)
@@ -34,6 +37,14 @@ func main() {
 	}
 	if *skipCart {
 		config.SkipAddToCart = true
+	}
+
+	// Timed sale mode configuration
+	if *saleTime != "" {
+		config.EnableSaleTiming = true
+		config.SaleStartTime = *saleTime
+		config.StartBeforeSaleMinutes = *startBefore
+		config.ContinueAfterSaleMinutes = *continueAfter
 	}
 
 	if config.ItemURL == "" && !config.SkipAddToCart {
@@ -59,6 +70,13 @@ func main() {
 		fmt.Println("⏭️  SKIP CART MODE - Item already in cart, skipping add step")
 	}
 
+	if config.EnableSaleTiming && config.SaleStartTime != "" {
+		fmt.Println("⏰ TIMED SALE MODE - Will retry aggressively around sale time")
+		fmt.Printf("   Sale Time: %s\n", config.SaleStartTime)
+		fmt.Printf("   Start: %d min before | Continue: %d min after\n",
+			config.StartBeforeSaleMinutes, config.ContinueAfterSaleMinutes)
+	}
+
 	fmt.Println("⚡ FAST API MODE - Hybrid authentication + API checkout")
 	fmt.Println()
 
@@ -81,8 +99,16 @@ func main() {
 	}
 
 	fmt.Println("\n🚀 Step 3: Running lightning-fast API checkout...")
-	if err := fastCheckout.RunFastCheckout(automation); err != nil {
-		log.Fatalf("Fast checkout failed: %v", err)
+
+	// Use timed sale mode if enabled and sale time is configured
+	if config.EnableSaleTiming && config.SaleStartTime != "" {
+		if err := fastCheckout.RunTimedSaleCheckout(automation); err != nil {
+			log.Fatalf("Timed sale checkout failed: %v", err)
+		}
+	} else {
+		if err := fastCheckout.RunFastCheckout(automation); err != nil {
+			log.Fatalf("Fast checkout failed: %v", err)
+		}
 	}
 
 	fmt.Println()

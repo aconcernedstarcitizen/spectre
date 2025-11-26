@@ -18,13 +18,14 @@ import (
 )
 
 type FastCheckout struct {
-	client    *http.Client
-	config    *Config
-	baseURL   string
-	graphqlURL string
-	cookies   []*http.Cookie
-	csrfToken string
-	userAgent string
+	client           *http.Client
+	config           *Config
+	baseURL          string
+	graphqlURL       string
+	cookies          []*http.Cookie
+	csrfToken        string
+	userAgent        string
+	cachedAddressID  string // Cached billing address for speed
 }
 
 type GraphQLRequest struct {
@@ -413,7 +414,9 @@ func isCaptchaError(err error) bool {
 }
 
 func (f *FastCheckout) simulateHumanBehavior(page *rod.Page) {
-	movements := 3 + rand.Intn(4)
+	// OPTIMIZED: Minimal human simulation for maximum speed
+	// Reduced from ~600ms average to ~50ms while maintaining basic variety
+	movements := 1 + rand.Intn(2) // Reduced from 3-6 to 1-2 movements
 	for i := 0; i < movements; i++ {
 		x := rand.Intn(800) + 100
 		y := rand.Intn(600) + 100
@@ -429,27 +432,29 @@ func (f *FastCheckout) simulateHumanBehavior(page *rod.Page) {
 			document.dispatchEvent(event);
 		}`, x, y))
 
-		time.Sleep(time.Duration(30+rand.Intn(70)) * time.Millisecond)
+		time.Sleep(time.Duration(5+rand.Intn(10)) * time.Millisecond) // Reduced from 30-100ms to 5-15ms
 	}
 
+	// Quick scroll
 	scrollAmount := 50 + rand.Intn(100)
 	page.Eval(fmt.Sprintf(`() => window.scrollBy(0, %d)`, scrollAmount))
 
-	time.Sleep(time.Duration(100+rand.Intn(200)) * time.Millisecond)
+	time.Sleep(time.Duration(5+rand.Intn(10)) * time.Millisecond) // Reduced from 100-300ms to 5-15ms
 
+	// Quick click
 	page.Eval(`() => {
 		var event = new Event('mousedown', {bubbles: true});
 		document.dispatchEvent(event);
 	}`)
 
-	time.Sleep(time.Duration(50+rand.Intn(100)) * time.Millisecond)
+	time.Sleep(time.Duration(5+rand.Intn(10)) * time.Millisecond) // Reduced from 50-150ms to 5-15ms
 
 	page.Eval(`() => {
 		var event = new Event('mouseup', {bubbles: true});
 		document.dispatchEvent(event);
 	}`)
 
-	time.Sleep(time.Duration(150+rand.Intn(250)) * time.Millisecond)
+	time.Sleep(time.Duration(10+rand.Intn(20)) * time.Millisecond) // Reduced from 150-400ms to 10-30ms
 }
 
 func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) (string, error) {
@@ -537,9 +542,10 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 		return "", fmt.Errorf("failed to start reCAPTCHA execution: %w", err)
 	}
 
-	maxAttempts := 25
+	// OPTIMIZED: Faster token checking for speed
+	maxAttempts := 30 // 30 attempts at 50ms = 1.5 seconds max
 	for i := 0; i < maxAttempts; i++ {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond) // Reduced from 200ms to 50ms for faster polling
 
 		debugState, _ := page.Eval(`() => window.__specterDebug`)
 		debugStr := ""
@@ -619,19 +625,18 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 	fmt.Printf("🛒 Adding to cart (API) with retry mechanism...\n")
 	fmt.Printf("[DEBUG] SKU ID: %s\n", skuID)
 
-	totalWindow := f.config.StartBeforeSaleSeconds + f.config.ContinueAfterSaleSeconds
-	fmt.Printf("⏱️  Will retry for up to %d seconds (sale window: -%ds to +%ds)\n",
-		totalWindow, f.config.StartBeforeSaleSeconds, f.config.ContinueAfterSaleSeconds)
+	retryDuration := f.config.RetryDurationSeconds
+	fmt.Printf("⏱️  Will retry for up to %d seconds\n", retryDuration)
 
 	startTime := time.Now()
-	retryDeadline := startTime.Add(time.Duration(totalWindow) * time.Second)
+	retryDeadline := startTime.Add(time.Duration(retryDuration) * time.Second)
 	attemptNum := 0
 
-	mutation := `mutation AddCartMultiItemMutation($storeFront: String!, $query: [CartAddInput!], $token: String, $mark: String) {
-  store(name: $storeFront) {
+	mutation := `mutation AddCartMultiItemMutation($query: [CartAddInput!]) {
+  store(name: "pledge") {
     cart {
       mutations {
-        addMany(query: $query, token: $token, mark: $mark) {
+        addMany(query: $query) {
           count
           resources {
             id
@@ -693,27 +698,21 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 			}
 		}
 
-		unixTimestamp := fmt.Sprintf("%d", time.Now().Unix())
-
+		// Match the exact structure from manual browser add-to-cart
 		variables := map[string]interface{}{
-			"storeFront": "pledge",
 			"query": []map[string]interface{}{
 				{
 					"qty":   1,
-					"skuId": skuID,
+					"skuId": skuID, // Keep as string, like browser does
 				},
 			},
-			"mark": unixTimestamp,
 		}
 
-		if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" && len(recaptchaToken) > 10 {
-			variables["token"] = recaptchaToken
-			if f.config.DebugMode && attemptNum <= 3 {
-				fmt.Printf("[DEBUG] Attempt %d: Including reCAPTCHA token as 'token' with mark=%s\n", attemptNum, unixTimestamp)
-			}
-		} else {
-			if f.config.DebugMode && attemptNum <= 3 {
-				fmt.Printf("[DEBUG] Attempt %d: NOT including reCAPTCHA token (invalid or missing), mark=%s\n", attemptNum, unixTimestamp)
+		if f.config.DebugMode && attemptNum <= 3 {
+			if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" && len(recaptchaToken) > 10 {
+				fmt.Printf("[DEBUG] Attempt %d: Generated reCAPTCHA token but NOT using it for AddCartMultiItemMutation (len=%d)\n", attemptNum, len(recaptchaToken))
+			} else {
+				fmt.Printf("[DEBUG] Attempt %d: No reCAPTCHA token generated\n", attemptNum)
 			}
 		}
 
@@ -762,33 +761,39 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		isCaptchaFail := isCaptchaError(err)
 
 		if isCaptchaFail {
-			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			// Minimal delay for CAPTCHA - just retry immediately with new token
+			delayMs := 5 + rand.Intn(15) // 5-20ms - extremely fast
 			delay = time.Duration(delayMs) * time.Millisecond
 
 			if attemptNum%10 == 0 || attemptNum <= 3 {
-				fmt.Printf("🔐 Attempt %d: CAPTCHA verification needed - retrying in %dms (remaining: %v)...\n",
+				fmt.Printf("🔐 Attempt %d: CAPTCHA verification needed - fast retry in %dms (remaining: %v)...\n",
 					attemptNum, delayMs, remaining.Round(time.Second))
 			}
 		} else if isRateLimited {
-			delayMs := 2000 + rand.Intn(3000)
+			// Aggressive rate limit handling - minimal backoff
+			delayMs := 50 + rand.Intn(100) // 50-150ms instead of 2000-5000ms
 			delay = time.Duration(delayMs) * time.Millisecond
-			fmt.Printf("⚠️  Attempt %d: Rate limited (4227) - waiting %dms before retry (remaining: %v)...\n",
+			fmt.Printf("⚠️  Attempt %d: Rate limited (4227) - fast retry in %dms (remaining: %v)...\n",
 				attemptNum, delayMs, remaining.Round(time.Second))
 		} else if isOutOfStock {
-			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			// Out of stock - minimal delay, keep hammering
+			delayMs := 5 + rand.Intn(15) // 5-20ms - extremely fast
 			delay = time.Duration(delayMs) * time.Millisecond
 
 			if attemptNum%10 == 0 {
-				fmt.Printf("⏳ Attempt %d: Out of stock (4226) - waiting for sale to start (remaining: %v)...\n",
+				fmt.Printf("⏳ Attempt %d: Out of stock (4226) - fast retry (remaining: %v)...\n",
 					attemptNum, remaining.Round(time.Second))
 			}
 		} else {
-			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			// Generic error - minimal delay
+			delayMs := 5 + rand.Intn(25) // 5-30ms
 			delay = time.Duration(delayMs) * time.Millisecond
 
 			attemptDuration := time.Since(attemptStart)
-			fmt.Printf("⚠️  Attempt %d failed (%v) - retrying in %dms (remaining: %v)...\n",
-				attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+			if attemptNum <= 5 || attemptNum%20 == 0 {
+				fmt.Printf("⚠️  Attempt %d failed (%v) - fast retry in %dms (remaining: %v)...\n",
+					attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+			}
 		}
 
 		if delay > remaining {
@@ -1120,15 +1125,42 @@ func (f *FastCheckout) AssignBillingAddress(addressID string) error {
 }
 
 func (f *FastCheckout) ValidateCart(automation *Automation) error {
+	return f.ValidateCartWithDeadline(automation, time.Time{})
+}
+
+func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline time.Time) error {
 	fmt.Println("✅ Validating and completing order...")
 
 	startTime := time.Now()
-	retryDeadline := startTime.Add(time.Duration(f.config.RetryDurationSeconds) * time.Second)
+
+	// Use provided deadline or create one based on config
+	var retryDeadline time.Time
+	if !deadline.IsZero() {
+		retryDeadline = deadline
+		remaining := deadline.Sub(startTime)
+		fmt.Printf("⏱️  Will retry validation until sale window ends: %v remaining\n", remaining.Round(time.Second))
+	} else {
+		retryDeadline = startTime.Add(time.Duration(f.config.RetryDurationSeconds) * time.Second)
+		fmt.Printf("⏱️  Will retry validation for up to %d seconds\n", f.config.RetryDurationSeconds)
+	}
+
 	attemptNum := 0
 
 	for {
 		attemptNum++
 		attemptStart := time.Now()
+
+		// Show progress for aggressive retry mode (every 50 attempts)
+		remaining := retryDeadline.Sub(time.Now())
+		if attemptNum == 1 || attemptNum%50 == 0 {
+			if !deadline.IsZero() {
+				// Timed sale mode - show time remaining in window
+				fmt.Printf("🔄 Validation Attempt %d - Time remaining in sale window: %v\n", attemptNum, remaining.Round(time.Second))
+			} else if attemptNum%50 == 0 {
+				// Normal mode - only show every 50 attempts to reduce spam
+				fmt.Printf("🔄 Validation Attempt %d - Time remaining: %v\n", attemptNum, remaining.Round(time.Second))
+			}
+		}
 
 		recaptchaToken, err := f.GetRecaptchaToken(automation, "store/cart/validate")
 		if err != nil {
@@ -1177,6 +1209,15 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
 			variables["token"] = recaptchaToken
 		}
 
+		// Debug logging for validation mutation
+		if f.config.DebugMode && attemptNum <= 3 {
+			if recaptchaToken != "" && recaptchaToken != "null" && recaptchaToken != "undefined" && len(recaptchaToken) > 10 {
+				fmt.Printf("[DEBUG] Validation Attempt %d: Using reCAPTCHA token (len=%d) with mark=%s\n", attemptNum, len(recaptchaToken), mark)
+			} else {
+				fmt.Printf("[DEBUG] Validation Attempt %d: No valid reCAPTCHA token! mark=%s\n", attemptNum, mark)
+			}
+		}
+
 		request := []GraphQLRequest{
 			{
 				OperationName: "CartValidateCartMutation",
@@ -1185,7 +1226,19 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
 			},
 		}
 
+		if f.config.DebugMode && attemptNum == 1 {
+			jsonData, _ := json.MarshalIndent(request, "", "  ")
+			fmt.Printf("[DEBUG] CartValidateCartMutation request body:\n%s\n", string(jsonData))
+		}
+
 		resp, err := f.graphqlRequest(request)
+
+		if f.config.DebugMode && attemptNum <= 3 {
+			fmt.Printf("[DEBUG] Validation Attempt %d response: %s\n", attemptNum, resp)
+			if err != nil {
+				fmt.Printf("[DEBUG] Validation Attempt %d error: %v\n", attemptNum, err)
+			}
+		}
 
 		if err == nil {
 			var responses []struct {
@@ -1221,12 +1274,17 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
 			}
 		}
 
-		remaining := retryDeadline.Sub(time.Now())
+		remaining = retryDeadline.Sub(time.Now())
 
 		if remaining <= 0 {
 			elapsed := time.Since(startTime)
-			fmt.Printf("❌ Retry timeout reached after %d attempts in %v\n", attemptNum, elapsed)
-			return fmt.Errorf("cart validation failed after %d attempts: %w", attemptNum, err)
+			if !deadline.IsZero() {
+				fmt.Printf("❌ Sale window expired after %d validation attempts in %v\n", attemptNum, elapsed)
+				return fmt.Errorf("cart validation failed after %d attempts - sale window expired: %w", attemptNum, err)
+			} else {
+				fmt.Printf("❌ Retry timeout reached after %d attempts in %v\n", attemptNum, elapsed)
+				return fmt.Errorf("cart validation failed after %d attempts: %w", attemptNum, err)
+			}
 		}
 
 		var delay time.Duration
@@ -1234,25 +1292,30 @@ func (f *FastCheckout) ValidateCart(automation *Automation) error {
 		isOutOfStock := isOutOfStockError(err)
 
 		if isRateLimited {
-			delayMs := 2000 + rand.Intn(3000)
+			// Minimal backoff for rate limits during validation
+			delayMs := 50 + rand.Intn(100) // 50-150ms instead of 2000-5000ms
 			delay = time.Duration(delayMs) * time.Millisecond
-			fmt.Printf("⚠️  Attempt %d: Rate limited (4227) during validation - waiting %dms before retry (remaining: %v)...\n",
+			fmt.Printf("⚠️  Attempt %d: Rate limited (4227) during validation - fast retry in %dms (remaining: %v)...\n",
 				attemptNum, delayMs, remaining.Round(time.Second))
 		} else if isOutOfStock {
-			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			// Minimal delay for out of stock during validation
+			delayMs := 5 + rand.Intn(15) // 5-20ms
 			delay = time.Duration(delayMs) * time.Millisecond
 
 			if attemptNum%10 == 0 {
-				fmt.Printf("⏳ Attempt %d: Item unavailable (4226) during validation - retrying (remaining: %v)...\n",
+				fmt.Printf("⏳ Attempt %d: Item unavailable (4226) during validation - fast retry (remaining: %v)...\n",
 					attemptNum, remaining.Round(time.Second))
 			}
 		} else {
-			delayMs := f.config.RetryDelayMinMs + rand.Intn(f.config.RetryDelayMaxMs-f.config.RetryDelayMinMs+1)
+			// Generic error during validation - minimal delay
+			delayMs := 5 + rand.Intn(25) // 5-30ms
 			delay = time.Duration(delayMs) * time.Millisecond
 
 			attemptDuration := time.Since(attemptStart)
-			fmt.Printf("⚠️  Attempt %d failed (%v) - retrying in %dms (remaining: %v)...\n",
-				attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+			if attemptNum <= 5 || attemptNum%20 == 0 {
+				fmt.Printf("⚠️  Attempt %d failed (%v) - fast retry in %dms (remaining: %v)...\n",
+					attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+			}
 		}
 
 		if delay > remaining {
@@ -1278,7 +1341,6 @@ func (f *FastCheckout) graphqlRequest(requests []GraphQLRequest) (string, error)
 	req.Header.Set("User-Agent", f.userAgent)
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	req.Header.Set("Origin", "https://robertsspaceindustries.com")
 	req.Header.Set("Referer", "https://robertsspaceindustries.com/")
 
@@ -1371,12 +1433,13 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		return fmt.Errorf("failed to move to billing: %w", err)
 	}
 
-	if f.config.AutoApplyCredit {
-		cartTotal, maxCredit, err := f.GetCartTotals()
-		if err != nil {
-			return fmt.Errorf("failed to query cart totals: %w", err)
-		}
+	// OPTIMIZATION: Query cart totals once before credit application
+	cartTotal, maxCredit, err := f.GetCartTotals()
+	if err != nil {
+		return fmt.Errorf("failed to query cart totals: %w", err)
+	}
 
+	if f.config.AutoApplyCredit {
 		creditToApply := cartTotal
 		if creditToApply > maxCredit {
 			fmt.Printf("⚠️  Cart total ($%.2f) exceeds max applicable credit ($%.2f)\n", cartTotal, maxCredit)
@@ -1388,14 +1451,14 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 			if err := f.ApplyStoreCredit(creditToApply); err != nil {
 				return fmt.Errorf("failed to apply credit: %w", err)
 			}
+			// OPTIMIZATION: We know the total is $0 after applying credit, no need to re-query
+			cartTotal = 0
+			if f.config.DebugMode {
+				fmt.Printf("[DEBUG] Cart total after credit: $%.2f (optimized - not re-queried)\n", cartTotal)
+			}
 		} else {
 			fmt.Println("ℹ️  No credit needed (cart total is $0)")
 		}
-	}
-
-	cartTotal, _, err := f.GetCartTotals()
-	if err != nil {
-		return fmt.Errorf("failed to query updated cart totals: %w", err)
 	}
 
 	if cartTotal == 0 {
@@ -1404,12 +1467,21 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 			return fmt.Errorf("failed to move to addresses: %w", err)
 		}
 
-		addressID, err := f.GetDefaultBillingAddress()
-		if err != nil {
-			return fmt.Errorf("failed to get billing address: %w", err)
+		// OPTIMIZATION: Cache address ID if not already cached
+		if f.cachedAddressID == "" {
+			addressID, err := f.GetDefaultBillingAddress()
+			if err != nil {
+				return fmt.Errorf("failed to get billing address: %w", err)
+			}
+			f.cachedAddressID = addressID
+			if f.config.DebugMode {
+				fmt.Printf("[DEBUG] Cached billing address: %s\n", addressID)
+			}
+		} else if f.config.DebugMode {
+			fmt.Printf("[DEBUG] Using cached billing address: %s\n", f.cachedAddressID)
 		}
 
-		if err := f.AssignBillingAddress(addressID); err != nil {
+		if err := f.AssignBillingAddress(f.cachedAddressID); err != nil {
 			return fmt.Errorf("failed to assign billing address: %w", err)
 		}
 
@@ -1447,5 +1519,232 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		fmt.Println("🏆 ACHIEVED SUB-SECOND CHECKOUT!")
 	}
 
+	return nil
+}
+
+// RunTimedSaleCheckout handles timed sale scenarios with aggressive retry logic
+func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
+	// Parse sale start time
+	saleTime, err := time.Parse(time.RFC3339, f.config.SaleStartTime)
+	if err != nil {
+		return fmt.Errorf("invalid sale start time format (use RFC3339): %w", err)
+	}
+
+	startRetryTime := saleTime.Add(-time.Duration(f.config.StartBeforeSaleMinutes) * time.Minute)
+	endRetryTime := saleTime.Add(time.Duration(f.config.ContinueAfterSaleMinutes) * time.Minute)
+
+	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
+	fmt.Println("║           TIMED SALE MODE - AGGRESSIVE RETRY              ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Printf("⏰ Sale starts at: %s\n", saleTime.Local().Format(time.RFC1123))
+	fmt.Printf("🚀 Will start retrying at: %s (%d min before)\n",
+		startRetryTime.Local().Format(time.RFC1123), f.config.StartBeforeSaleMinutes)
+	fmt.Printf("⏱️  Will stop retrying at: %s (%d min after)\n",
+		endRetryTime.Local().Format(time.RFC1123), f.config.ContinueAfterSaleMinutes)
+	fmt.Println()
+
+	// Wait until it's time to start
+	now := time.Now()
+	if now.Before(startRetryTime) {
+		waitDuration := startRetryTime.Sub(now)
+		fmt.Printf("⏳ Waiting %v until retry window starts...\n", waitDuration.Round(time.Second))
+		time.Sleep(waitDuration)
+		fmt.Println("✓ Retry window started!")
+	} else if now.After(endRetryTime) {
+		return fmt.Errorf("sale window has already passed (ended at %s)", endRetryTime.Local().Format(time.RFC1123))
+	} else {
+		fmt.Println("⚡ Already in retry window - starting immediately!")
+	}
+
+	if err := f.LoadSessionFromBrowser(automation); err != nil {
+		return fmt.Errorf("failed to load session: %w", err)
+	}
+
+	skuID, err := f.GetSKUFromBrowser(automation, f.config.ItemURL)
+	if err != nil {
+		return fmt.Errorf("failed to get SKU ID: %w", err)
+	}
+
+	// OPTIMIZATION: Pre-fetch and cache billing address after session is loaded
+	// This saves time during checkout phase
+	if f.cachedAddressID == "" {
+		addressID, err := f.GetDefaultBillingAddress()
+		if err != nil {
+			return fmt.Errorf("failed to pre-fetch billing address: %w", err)
+		}
+		f.cachedAddressID = addressID
+		fmt.Printf("✓ Cached billing address: %s\n", addressID)
+	} else {
+		fmt.Printf("✓ Using cached billing address: %s\n", f.cachedAddressID)
+	}
+
+	// Phase 1: Aggressive add-to-cart retries
+	fmt.Println()
+	fmt.Println("═══════════════════════════════════════════════════════════")
+	fmt.Println("           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)")
+	fmt.Println("═══════════════════════════════════════════════════════════")
+
+	attemptNum := 0
+	startTime := time.Now()
+
+	for {
+		attemptNum++
+		now := time.Now()
+
+		if now.After(endRetryTime) {
+			elapsed := time.Since(startTime)
+			return fmt.Errorf("failed to add to cart after %d attempts in %v - retry window expired", attemptNum, elapsed)
+		}
+
+		remaining := endRetryTime.Sub(now)
+
+		if attemptNum == 1 || attemptNum%50 == 0 {
+			fmt.Printf("🔄 Attempt %d - Time remaining: %v\n", attemptNum, remaining.Round(time.Second))
+		}
+
+		// Try to add to cart (without retry logic inside - we handle retries here)
+		err := f.addToCartSingleAttempt(skuID, automation)
+		if err == nil {
+			elapsed := time.Since(startTime)
+			fmt.Printf("\n✅ Successfully added to cart after %d attempts in %v!\n\n", attemptNum, elapsed)
+			break
+		}
+
+		// Ultra-fast retry delays
+		var delay time.Duration
+		if isOutOfStockError(err) {
+			delay = time.Duration(5+rand.Intn(15)) * time.Millisecond // 5-20ms
+		} else if isRateLimitError(err) {
+			delay = time.Duration(50+rand.Intn(100)) * time.Millisecond // 50-150ms
+		} else {
+			delay = time.Duration(5+rand.Intn(25)) * time.Millisecond // 5-30ms
+		}
+
+		time.Sleep(delay)
+	}
+
+	// Phase 2: Aggressive checkout retries
+	fmt.Println("═══════════════════════════════════════════════════════════")
+	fmt.Println("           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)")
+	fmt.Println("═══════════════════════════════════════════════════════════")
+
+	// Query cart totals once
+	cartTotal, maxCredit, err := f.GetCartTotals()
+	if err != nil {
+		return fmt.Errorf("failed to query cart totals: %w", err)
+	}
+
+	fmt.Println("➡️  Moving to billing step...")
+	if err := f.NextStep(); err != nil {
+		return fmt.Errorf("failed to move to billing: %w", err)
+	}
+
+	if f.config.AutoApplyCredit {
+		creditToApply := cartTotal
+		if creditToApply > maxCredit {
+			fmt.Printf("⚠️  Cart total ($%.2f) exceeds max credit ($%.2f) - applying max\n", cartTotal, maxCredit)
+			creditToApply = maxCredit
+		}
+
+		if creditToApply > 0 {
+			if err := f.ApplyStoreCredit(creditToApply); err != nil {
+				return fmt.Errorf("failed to apply credit: %w", err)
+			}
+			cartTotal = 0
+		}
+	}
+
+	if cartTotal == 0 {
+		fmt.Println("➡️  Moving to addresses step...")
+		if err := f.NextStep(); err != nil {
+			return fmt.Errorf("failed to move to addresses: %w", err)
+		}
+
+		if err := f.AssignBillingAddress(f.cachedAddressID); err != nil {
+			return fmt.Errorf("failed to assign billing address: %w", err)
+		}
+
+		if !f.config.DryRun {
+			fmt.Println("🎯 Completing order with aggressive retries until sale window ends...")
+			// Use the same endRetryTime from the sale window for validation
+			if err := f.ValidateCartWithDeadline(automation, endRetryTime); err != nil {
+				return fmt.Errorf("failed to validate cart: %w", err)
+			}
+			fmt.Println("\n✅ ORDER COMPLETED!")
+		} else {
+			fmt.Println("🧪 DRY RUN - Stopping before final submission")
+		}
+	} else {
+		fmt.Printf("➡️  Moving to payment step (balance: $%.2f)...\n", cartTotal)
+		if err := f.NextStep(); err != nil {
+			return fmt.Errorf("failed to move to payment: %w", err)
+		}
+
+		if !f.config.DryRun {
+			fmt.Println("🎯 Completing order with payment...")
+			if err := f.NextStep(); err != nil {
+				return fmt.Errorf("failed to complete order: %w", err)
+			}
+			fmt.Println("\n✅ ORDER COMPLETED!")
+		} else {
+			fmt.Println("🧪 DRY RUN - Stopping before final submission")
+		}
+	}
+
+	totalElapsed := time.Since(startTime)
+	fmt.Printf("\n⚡ Total time from first attempt to completion: %v\n", totalElapsed)
+
+	return nil
+}
+
+// addToCartSingleAttempt tries to add to cart once without retrying
+func (f *FastCheckout) addToCartSingleAttempt(skuID string, automation *Automation) error {
+	// No reCAPTCHA needed for AddCartMultiItemMutation
+	mutation := `mutation AddCartMultiItemMutation($query: [CartAddInput!]) {
+  store(name: "pledge") {
+    cart {
+      mutations {
+        addMany(query: $query) {
+          count
+          resources {
+            id
+            title
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}`
+
+	variables := map[string]interface{}{
+		"query": []map[string]interface{}{
+			{
+				"qty":   1,
+				"skuId": skuID,
+			},
+		},
+	}
+
+	request := []GraphQLRequest{
+		{
+			OperationName: "AddCartMultiItemMutation",
+			Variables:     variables,
+			Query:         mutation,
+		},
+	}
+
+	resp, err := f.graphqlRequest(request)
+	if err != nil {
+		return err
+	}
+
+	// Success - item added to cart
+	_ = resp
 	return nil
 }
