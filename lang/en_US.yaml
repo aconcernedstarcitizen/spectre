@@ -1,0 +1,246 @@
+# Specter - English (US) Locale
+
+# General
+app_starting: "🚀 Starting Specter - Star Citizen Automated Checkout"
+dry_run_mode: "🧪 DRY RUN MODE - No actual purchase will be made"
+cleaning_up: "\n🔒 Cleaning up browser session..."
+browser_destroyed: "✓ Browser session destroyed"
+operation_complete: "\n✨ Operation complete!"
+
+# Browser
+browser_launching: "🚀 Launching browser..."
+browser_launched: "✓ Browser launched successfully"
+browser_closed_by_user: "\n⚠️  Browser window was closed by user"
+shutting_down: "🛑 Shutting down gracefully..."
+browser_watcher_started: "Browser watcher started"
+opening_for_login: "🔐 Opening browser for login..."
+loading_product_page: "📄 Navigating to product page: %s"
+product_page_loaded: "✓ Product page loaded successfully"
+browser_configured: "✓ Browser configured with desktop viewport"
+stealth_enabled: "✓ Stealth mode enabled (anti-bot detection)"
+user_agent_set: "User-Agent set to Chrome desktop"
+viewport_set: "Viewport set to %dx%d (desktop)"
+product_page_http_status: "Product page HTTP status: %d"
+windows_leakless_disabled: "ℹ️  Running on Windows - leakless mode disabled"
+
+# Login
+login_required_header: "╔═══════════════════════════════════════════════════════════╗\n║                      LOGIN REQUIRED                       ║\n╚═══════════════════════════════════════════════════════════╝"
+login_instructions: "📋 Instructions:\n   1. Log in to your RSI account in the browser window\n   2. WAIT until the ship is AVAILABLE on the RSI store\n   3. When ready, press ENTER to start the automated checkout\n\n   ⚠️  Press ESC to exit if you need to cancel"
+login_prompt: "⏳ Press ENTER when logged in and ship is available (or ESC to exit): "
+user_confirmed_ready: "✓ User confirmed ready to proceed"
+user_requested_exit: "⚠️  User requested exit"
+
+# reCAPTCHA
+recaptcha_preloading: "🔐 Pre-loading reCAPTCHA Enterprise..."
+recaptcha_already_loaded: "✓ reCAPTCHA Enterprise already loaded"
+recaptcha_ready: "✓ reCAPTCHA Enterprise ready"
+recaptcha_injection_failed: "⚠️  reCAPTCHA injection failed (will retry during checkout)"
+recaptcha_timeout: "⚠️  reCAPTCHA did not load in time (will retry during checkout)"
+recaptcha_loaded_after: "reCAPTCHA loaded successfully after %dms"
+recaptcha_timeout_after: "reCAPTCHA load timeout after 2 seconds"
+recaptcha_key_warning: "⚠️  WARNING: Config key differs from page key!\n   Config:   %s\n   Detected: %s\n   Update your config.yaml to use the detected key"
+recaptcha_detected_key: "Detected reCAPTCHA site key from page: %s"
+building_interaction_history: "🎭 Building interaction history for reCAPTCHA scoring..."
+interaction_history_built: "Built ~200ms of interaction history (optimized for speed)"
+interaction_history_complete: "✓ Interaction history established (fast mode)"
+
+# Checkout Flow
+fast_checkout_header: "╔═══════════════════════════════════════════════════════════╗\n║              FAST CHECKOUT MODE (API-ONLY)                ║\n║           (Browser-Free Lightning Speed)                  ║\n╚═══════════════════════════════════════════════════════════╝"
+timed_sale_header: "╔═══════════════════════════════════════════════════════════╗\n║            TIMED SALE MODE (AGGRESSIVE RETRY)             ║\n╚═══════════════════════════════════════════════════════════╝"
+phase1_add_to_cart: "═══════════════════════════════════════════════════════════\n           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)\n═══════════════════════════════════════════════════════════"
+phase2_checkout: "═══════════════════════════════════════════════════════════\n           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)\n═══════════════════════════════════════════════════════════"
+
+# SKU Operations
+extracting_sku: "🔍 Extracting SKU slug from %s..."
+sku_extracted_http: "✓ Extracted SKU slug (HTTP): %s"
+converting_sku: "🔍 Converting SKU slug to numeric ID..."
+querying_sku_id: "🔍 Querying SKU ID for slug: %s"
+sku_id_found: "✓ Found SKU ID: %s"
+sku_id_found_with_title: "✓ Found SKU ID: %s (%s)"
+opening_incognito: "🕵️  Opening incognito browser to extract SKU slug..."
+sku_extracted_incognito: "✓ Extracted SKU slug (incognito): %s"
+sku_extracted_incognito_html: "✓ Extracted SKU slug (incognito/HTML): %s"
+
+# Cart Operations
+adding_to_cart: "➕ Adding item to cart (API)..."
+item_added: "✓ Item added to cart"
+skipping_add_to_cart: "⏭️  Skipping add to cart (item already in cart)"
+querying_cart_totals: "📊 Querying cart totals..."
+cart_total: "✓ Cart total: $%.2f"
+available_credit: "✓ Available store credit: $%.2f"
+max_applicable_credit: "✓ Max applicable to this cart: $%.2f"
+cart_validated: "✓ Cart contains only target item: %s ($%.2f)"
+
+# Cart Warning
+cart_warning_header: "╔═══════════════════════════════════════════════════════════╗\n║                    ⚠️  CART WARNING                       ║\n╚═══════════════════════════════════════════════════════════╝"
+cart_contains_items: "Your cart contains %d item(s):"
+target_item_marker: "(This is your target item)"
+cart_total_label: "Cart Total: $%.2f"
+multiple_items_warning: "⚠️  You have MULTIPLE items in your cart!\n   This checkout will purchase ALL items shown above."
+wrong_item_warning: "⚠️  The cart contains a different item than expected!"
+cart_warning_options: "Options:\n  1. Press ENTER to continue with the CURRENT cart contents\n  2. Press ESC to cancel and manually edit your cart"
+cart_warning_prompt: "⏳ Your choice: "
+user_confirmed_cart: "✓ User confirmed to proceed with current cart contents"
+user_canceled_cart: "⚠️  User requested cancellation"
+
+# Credit Operations
+applying_credit: "💰 Applying $%.2f store credit (API)..."
+credit_applied: "✓ Applied $%.2f credit"
+no_credit_needed: "ℹ️  No credit needed (cart total is $0)"
+credit_exceeds_total: "⚠️  Cart total ($%.2f) exceeds max applicable credit ($%.2f)\n   Applying maximum credit of $%.2f"
+credit_exceeds_total_short: "⚠️  Cart total ($%.2f) exceeds max credit ($%.2f) - applying max"
+cart_total_after_credit: "Cart total after credit: $%.2f (optimized - not re-queried)"
+
+# Navigation
+moving_to_billing: "➡️  Moving to billing/addresses step..."
+moving_to_addresses: "➡️  Moving to addresses step (total is $0)..."
+moving_to_payment: "➡️  Moving to payment step (remaining balance: $%.2f)..."
+moving_to_payment_short: "➡️  Moving to payment step (balance: $%.2f)..."
+
+# Address Operations
+getting_billing_address: "📍 Getting default billing address..."
+billing_address_found: "✓ Default billing address: %s"
+assigning_billing_address: "📌 Assigning billing address (API)..."
+billing_address_assigned: "✓ Billing address assigned"
+cached_billing_address: "Cached billing address: %s"
+using_cached_address: "Using cached billing address: %s"
+prefetched_billing_address: "✓ Cached billing address: %s"
+
+# Order Validation
+completing_order: "🎯 Completing order (validating cart)..."
+completing_with_payment: "🎯 Completing order with payment..."
+completing_with_retries: "🎯 Completing order with aggressive retries until sale window ends..."
+validating_cart: "🔐 Validating cart (final checkout step)..."
+order_validated: "✓ Order validated! Order slug: %s"
+order_created: "✓ Order has been created!"
+order_completed: "✓ ORDER COMPLETED!"
+order_completed_celebrate: "\n✅ ORDER COMPLETED!"
+
+# Dry Run
+dry_run_stopping: "🧪 DRY RUN - Stopping before final submission"
+
+# Timing
+waiting_seconds: "⏱  Waiting %.2f seconds..."
+retry_delay: "⏱  Waiting for retry window to start..."
+waiting_until_start: "⏳ Waiting %v until retry window starts..."
+retry_window_started: "✓ Retry window started!"
+already_in_window: "⚡ Already in retry window - starting immediately!"
+time_remaining: "Time remaining: %v"
+time_remaining_in_window: "Time remaining in sale window: %v"
+
+# Performance
+total_checkout_time: "\n⚡ Total checkout time: %v"
+checkout_target: "🎯 Target: <1 second | Actual: %v"
+achieved_subsecond: "🏆 ACHIEVED SUB-SECOND CHECKOUT!"
+total_time_from_start: "\n⚡ Total time from first attempt to completion: %v"
+success_after_attempts: "🎉 Success after %d attempt(s) in %v"
+
+# Retry Operations
+validation_attempt: "🔄 Validation Attempt %d - Time remaining in sale window: %v"
+validation_attempt_normal: "🔄 Validation Attempt %d - Time remaining: %v"
+add_to_cart_attempt: "🔄 Attempt %d - Time remaining: %v"
+retry_will_retry: "⏱️  Will retry validation for up to %d seconds"
+successfully_added_after: "\n✅ Successfully added to cart after %d attempts in %v!"
+
+# Retry Errors
+rate_limited_validation: "⚠️  Attempt %d: Rate limited (4227) during validation - fast retry in %dms (remaining: %v)..."
+out_of_stock_validation: "⏳ Attempt %d: Item unavailable (4226) during validation - fast retry (remaining: %v)..."
+attempt_failed_retry: "⚠️  Attempt %d failed (%v) - fast retry in %dms (remaining: %v)..."
+
+# Session
+loading_session: "🔑 Loading session from browser (extracting cookies and CSRF)..."
+session_loaded: "✓ Session loaded successfully"
+csrf_token_found: "✓ CSRF token: %s"
+cookies_extracted: "✓ Extracted %d cookie(s)"
+
+# reCAPTCHA Token
+generating_recaptcha: "🎫 Generating reCAPTCHA token for action: %s..."
+recaptcha_token_generated: "✓ reCAPTCHA token: %s... (length: %d)"
+reusing_cached_token: "🔄 Reusing cached reCAPTCHA token (age: %v, valid for: %v more)"
+token_cache_expired: "Token is missing or expired (>60s) - generate fresh token"
+
+# Errors - General
+error_invalid_config: "Failed to load config: %w"
+error_no_item_url: "No item URL configured. Please set item_url in config.yaml"
+error_browser_setup: "Failed to setup browser: %w"
+error_wait_for_login: "Login/wait failed: %w"
+error_load_session: "Failed to load session: %w"
+error_get_sku: "Failed to get SKU ID: %w"
+error_add_to_cart: "Failed to add to cart: %w"
+error_move_to_billing: "Failed to move to billing/addresses: %w"
+error_move_to_addresses: "Failed to move to addresses: %w"
+error_move_to_payment: "Failed to move to payment: %w"
+error_get_totals: "Failed to query cart totals: %w"
+error_apply_credit: "Failed to apply credit: %w"
+error_get_billing_address: "Failed to get billing address: %w"
+error_prefetch_billing_address: "Failed to pre-fetch billing address: %w"
+error_assign_billing_address: "Failed to assign billing address: %w"
+error_validate_cart: "Failed to validate cart: %w"
+error_complete_order: "Failed to complete order: %w"
+error_cart_validation: "Cart validation failed: %w"
+error_user_canceled: "User canceled operation"
+error_user_canceled_cart: "User canceled due to unexpected cart contents"
+
+# Errors - Cart
+error_cart_empty: "Cart is empty"
+error_cart_validation_attempts: "Cart validation failed after %d attempts: %w"
+error_cart_validation_expired: "Cart validation failed after %d attempts - sale window expired: %w"
+
+# Errors - Sale Timing
+error_sale_ended: "Sale window has already passed (ended at %s)"
+error_add_to_cart_expired: "Failed to add to cart after %d attempts in %v - retry window expired"
+
+# Errors - Product Page
+error_product_not_found: "Product page not found (404). Please verify the URL is correct: %s"
+error_product_load_failed: "Failed to load product page (HTTP %d)"
+error_invalid_product_page: "Page does not appear to be a valid product page (no SKU data found). URL: %s"
+
+# Errors - Browser
+error_browser_launch_chrome_running: "Failed to launch browser: Chrome is already running. Please close all Chrome windows and try again"
+error_browser_launch: "Failed to launch browser: %w"
+error_create_stealth_page: "Failed to create stealth page: %w"
+error_navigate: "Failed to navigate: %w"
+error_page_load: "Page failed to load: %w"
+error_set_user_agent: "Warning: Failed to set User-Agent: %v"
+error_set_viewport: "Warning: Failed to set viewport: %v"
+error_read_input: "Failed to read input: %w"
+
+# Errors - GraphQL/API
+error_graphql_request: "GraphQL request failed: %w"
+error_graphql_errors: "GraphQL returned errors: %v"
+error_parse_response: "Failed to parse response: %w"
+error_no_sku_found: "No SKU found for slug: %s"
+error_query_failed: "Query failed: %w"
+
+# Errors - Session/Auth
+error_extract_csrf: "Failed to extract CSRF token"
+error_no_cookies: "No cookies found - please ensure you're logged in"
+
+# Errors - reCAPTCHA
+error_recaptcha_failed: "Warning: Failed to get reCAPTCHA token: %v"
+error_recaptcha_inject: "Warning: Failed to inject reCAPTCHA script: %v"
+error_recaptcha_timeout: "reCAPTCHA token generation timed out"
+error_recaptcha_invalid: "reCAPTCHA execution returned invalid result"
+
+# Debug Messages
+debug_sku_slug_value: "SKU slug value: '%s' (length: %d)"
+debug_browser_version_failed: "Browser version check failed: %v"
+debug_page_info_failed: "Page info check failed: %v"
+debug_recaptcha_present: "reCAPTCHA already present on page"
+debug_recaptcha_waiting: "reCAPTCHA script injected, waiting for load..."
+
+# Sale Window Messages
+sale_window_start: "📅 Sale starts at: %s"
+sale_window_end: "⏰ Sale ends at: %s"
+sale_window_expired_header: "❌ Sale window expired after %d validation attempts in %v"
+sale_retry_timeout: "❌ Retry timeout reached after %d attempts in %v"
+
+# Config Messages
+config_loaded: "Configuration loaded from: %s"
+config_created: "Created default config at: %s"
+config_error_invalid_yaml: "Invalid YAML in config file"
+
+# Warnings
+warning_recaptcha_script_inject: "Warning: Failed to inject reCAPTCHA script: %v"
+warning_set_user_agent: "Warning: Failed to set User-Agent: %v"
+warning_set_viewport: "Warning: Failed to set viewport: %v"

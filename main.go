@@ -20,6 +20,11 @@ func main() {
 	continueAfter := flag.Int("continue-after", 20, "Minutes to continue retrying after sale (default: 20)")
 	flag.Parse()
 
+	// Initialize localization
+	if err := InitLocale(); err != nil {
+		log.Printf("Warning: Locale initialization failed, using default English: %v", err)
+	}
+
 	config, err := LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -61,7 +66,7 @@ func main() {
 	fmt.Printf("Browser Profile: %s\n", config.BrowserProfilePath)
 
 	if config.DryRun {
-		fmt.Println("🧪 DRY RUN MODE - Will stop before final purchase")
+		fmt.Println(T("dry_run_mode"))
 	}
 	if config.DebugMode {
 		fmt.Println("🔍 DEBUG MODE - Detailed logging enabled")

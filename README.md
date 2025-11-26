@@ -19,6 +19,7 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 - 💳 **Automatic store credit application** - No manual steps needed
 - 🤖 **Smart rate limit handling** - Automatically adjusts if the server is busy
 - 🎯 **Optimized for speed** - Every millisecond counts when competing for limited ships
+- 🌍 **Multi-language support** - Automatically detects your system language (English, Russian supported)
 
 ### Requirements
 
@@ -34,8 +35,13 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 
 1. **Download Specter:**
    - Go to: **https://github.com/anthropics/specter/releases**
-   - Download the latest `specter.exe` file (look for "Assets" section)
-   - Save it to a folder (like `C:\Specter`)
+   - Download the latest `specter-windows-amd64.zip` file (look for "Assets" section)
+   - **Right-click the ZIP file** and select "Extract All..."
+   - Extract to a folder (like `C:\Specter`)
+   - The extracted folder will contain:
+     - `specter.exe` - The program
+     - `config.yaml` - Configuration file
+     - `lang/` - Language files (auto-detects your system language)
 
 2. **Make sure Chrome is installed:**
    - If you don't have Chrome, download it from google.com/chrome
@@ -44,8 +50,15 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 
 1. **Download Specter:**
    - Go to: **https://github.com/anthropics/specter/releases**
-   - Download the latest `specter` file for Mac (look for "Assets" section)
-   - Save it to a folder (like `/Users/YourName/Specter`)
+   - Download the latest ZIP file for Mac:
+     - `specter-macos-arm64.zip` if you have Apple Silicon (M1/M2/M3/M4)
+     - `specter-macos-amd64.zip` if you have an Intel Mac
+   - **Double-click the ZIP file** to extract it
+   - Move the extracted folder to a location like `/Users/YourName/Specter`
+   - The extracted folder will contain:
+     - `specter` - The program
+     - `config.yaml` - Configuration file
+     - `lang/` - Language files (auto-detects your system language)
 
 2. **Make it runnable:**
    - Open Terminal (search for "Terminal" in Spotlight)
@@ -391,6 +404,7 @@ Specter - это инструмент, который автоматически
 - 💳 **Автоматическое применение store credit** - Без ручных действий
 - 🤖 **Умная обработка ограничений** - Автоматически подстраивается если сервер занят
 - 🎯 **Оптимизирован для скорости** - Каждая миллисекунда важна при конкуренции за лимитированные корабли
+- 🌍 **Многоязычная поддержка** - Автоматически определяет язык системы (поддерживается английский, русский)
 
 ### Требования
 
@@ -406,8 +420,13 @@ Specter - это инструмент, который автоматически
 
 1. **Скачайте Specter:**
    - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
-   - Скачайте последний файл `specter.exe` (смотрите в разделе "Assets")
-   - Сохраните в папку (например `C:\Specter`)
+   - Скачайте последний файл `specter-windows-amd64.zip` (смотрите в разделе "Assets")
+   - **Щелкните правой кнопкой мыши на ZIP файл** и выберите "Извлечь все..."
+   - Извлеките в папку (например `C:\Specter`)
+   - Извлеченная папка будет содержать:
+     - `specter.exe` - Программа
+     - `config.yaml` - Файл конфигурации
+     - `lang/` - Языковые файлы (автоматически определяет язык системы)
 
 2. **Убедитесь что Chrome установлен:**
    - Если у вас нет Chrome, скачайте его с google.com/chrome
@@ -416,8 +435,15 @@ Specter - это инструмент, который автоматически
 
 1. **Скачайте Specter:**
    - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
-   - Скачайте последний файл `specter` для Mac (смотрите в разделе "Assets")
-   - Сохраните в папку (например `/Users/ВашеИмя/Specter`)
+   - Скачайте последний ZIP файл для Mac:
+     - `specter-macos-arm64.zip` если у вас Apple Silicon (M1/M2/M3/M4)
+     - `specter-macos-amd64.zip` если у вас Intel Mac
+   - **Дважды кликните на ZIP файл** чтобы извлечь его
+   - Переместите извлеченную папку в место типа `/Users/ВашеИмя/Specter`
+   - Извлеченная папка будет содержать:
+     - `specter` - Программа
+     - `config.yaml` - Файл конфигурации
+     - `lang/` - Языковые файлы (автоматически определяет язык системы)
 
 2. **Сделайте его запускаемым:**
    - Откройте Terminal (найдите "Terminal" через Spotlight)

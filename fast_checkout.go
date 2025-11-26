@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -930,6 +932,224 @@ func (f *FastCheckout) GetCartTotals() (cartTotal float64, maxCredit float64, er
 	return cartTotal, maxCredit, nil
 }
 
+type CartItem struct {
+	Name     string
+	Price    float64
+	SKUID    string
+	Quantity int
+}
+
+func (f *FastCheckout) GetCartItems() ([]CartItem, error) {
+	query := `query StepperQuery($storeFront: String) {
+  store(name: $storeFront) {
+    cart {
+      lineItems {
+        id
+        skuId
+        sku {
+          title
+        }
+        unitPriceWithTax {
+          amount
+        }
+        qty
+      }
+    }
+  }
+}`
+
+	request := []GraphQLRequest{
+		{
+			OperationName: "StepperQuery",
+			Variables: map[string]interface{}{
+				"storeFront": "pledge",
+			},
+			Query: query,
+		},
+	}
+
+	resp, err := f.graphqlRequest(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cart items: %w", err)
+	}
+
+	var responses []struct {
+		Data struct {
+			Store struct {
+				Cart struct {
+					LineItems []struct {
+						ID     string      `json:"id"`
+						SkuID  json.Number `json:"skuId"`
+						Sku    struct {
+							Title string `json:"title"`
+						} `json:"sku"`
+						UnitPriceWithTax struct {
+							Amount float64 `json:"amount"`
+						} `json:"unitPriceWithTax"`
+						Qty int `json:"qty"`
+					} `json:"lineItems"`
+				} `json:"cart"`
+			} `json:"store"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal([]byte(resp), &responses); err != nil {
+		return nil, fmt.Errorf("failed to parse cart items response: %w", err)
+	}
+
+	if len(responses) == 0 {
+		return nil, fmt.Errorf("empty response from cart items query")
+	}
+
+	items := []CartItem{}
+	for _, lineItem := range responses[0].Data.Store.Cart.LineItems {
+		items = append(items, CartItem{
+			Name:     lineItem.Sku.Title,
+			Price:    lineItem.UnitPriceWithTax.Amount / 100.0, // Convert cents to dollars
+			SKUID:    lineItem.SkuID.String(),
+			Quantity: lineItem.Qty,
+		})
+	}
+
+	return items, nil
+}
+
+// ValidateCartContents checks cart state and returns:
+// - (true, nil): Cart is valid, safe to add item to cart
+// - (false, nil): Cart has issues but user chose to continue with current contents (skip adding)
+// - (false, error): User cancelled or validation error occurred
+func (f *FastCheckout) ValidateCartContents(expectedSKUID string, cartTotal float64) (bool, error) {
+	items, err := f.GetCartItems()
+	if err != nil {
+		return false, fmt.Errorf("failed to get cart items: %w", err)
+	}
+
+	// Empty cart is normal - proceed with adding
+	if len(items) == 0 {
+		fmt.Println("✓ Cart is empty, will add item")
+		return true, nil // Add to cart
+	}
+
+	// Check if cart already has exactly what we want: 1 item, correct SKU, quantity=1
+	if len(items) == 1 && items[0].SKUID == expectedSKUID && items[0].Quantity == 1 {
+		expectedTotal := items[0].Price
+		if cartTotal == expectedTotal {
+			// Perfect! Cart already has correct item at full price, don't add again
+			fmt.Printf("✓ Cart already contains target item: %s ($%.2f)\n", items[0].Name, items[0].Price)
+			fmt.Println("  Skipping add-to-cart step (would create duplicate)")
+			return false, nil // Don't add, proceed with existing cart
+		} else if cartTotal == 0 {
+			// Cart total is $0 - store credit already applied from previous run
+			fmt.Printf("✓ Cart already contains target item: %s ($%.2f)\n", items[0].Name, items[0].Price)
+			fmt.Println("  Store credit already applied (cart total: $0.00)")
+			fmt.Println("  Skipping add-to-cart and credit steps")
+			return false, nil // Don't add, proceed with existing cart
+		}
+		// If price doesn't match and isn't $0, fall through to show warning
+	}
+
+	// Cart has issues - multiple items, wrong items, quantity > 1, or price mismatch
+
+	// Cart has issues - either multiple items, wrong items, or quantity > 1
+	fmt.Println()
+	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
+	fmt.Println("║                    ⚠️  CART WARNING                       ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	// Calculate total items across all line items (considering quantities)
+	totalItems := 0
+	for _, item := range items {
+		totalItems += item.Quantity
+	}
+
+	if len(items) == 1 {
+		fmt.Printf("Your cart contains %d × %s:\n\n", items[0].Quantity, items[0].Name)
+	} else {
+		fmt.Printf("Your cart contains %d item(s) across %d line item(s):\n\n", totalItems, len(items))
+	}
+
+	for i, item := range items {
+		marker := "  "
+		if item.SKUID == expectedSKUID {
+			marker = "→ "
+		}
+
+		if item.Quantity > 1 {
+			fmt.Printf("%s%d. %s (Quantity: %d)\n", marker, i+1, item.Name, item.Quantity)
+		} else {
+			fmt.Printf("%s%d. %s\n", marker, i+1, item.Name)
+		}
+
+		fmt.Printf("   Price: $%.2f × %d = $%.2f\n", item.Price, item.Quantity, item.Price*float64(item.Quantity))
+
+		if item.SKUID == expectedSKUID {
+			fmt.Printf("   (This is your target item)\n")
+			if item.Quantity > 1 {
+				fmt.Printf("   ⚠️  WARNING: Buying %d copies of this ship!\n", item.Quantity)
+			}
+		}
+		fmt.Println()
+	}
+
+	fmt.Printf("Cart Total: $%.2f\n", cartTotal)
+
+	// Check if cart total matches expected for single item
+	if len(items) == 1 && items[0].SKUID == expectedSKUID && items[0].Quantity == 1 {
+		expectedTotal := items[0].Price
+		if cartTotal != expectedTotal {
+			fmt.Printf("Expected Total: $%.2f (for 1 × %s)\n", expectedTotal, items[0].Name)
+		}
+	}
+	fmt.Println()
+
+	// Determine the warning message
+	if len(items) > 1 {
+		fmt.Println("⚠️  You have MULTIPLE DIFFERENT items in your cart!")
+		fmt.Println("   This checkout will purchase ALL items shown above.")
+	} else if len(items) == 1 && items[0].SKUID == expectedSKUID && items[0].Quantity > 1 {
+		fmt.Printf("⚠️  You are buying %d copies of the SAME ship!\n", items[0].Quantity)
+		fmt.Printf("   This will purchase %d × %s for $%.2f total.\n",
+			items[0].Quantity, items[0].Name, items[0].Price*float64(items[0].Quantity))
+		fmt.Println()
+		fmt.Println("   NOTE: RSI limits purchases to max 5 of any item per order.")
+	} else if len(items) == 1 && items[0].SKUID == expectedSKUID && items[0].Quantity == 1 {
+		// Single correct item but cart total doesn't match
+		expectedTotal := items[0].Price
+		fmt.Printf("⚠️  Cart total ($%.2f) doesn't match expected price ($%.2f)!\n", cartTotal, expectedTotal)
+		fmt.Println("   This could be due to taxes, fees, or cart calculation issues.")
+	} else {
+		fmt.Println("⚠️  The cart contains a different item than expected!")
+	}
+
+	fmt.Println()
+	fmt.Println("Options:")
+	fmt.Println("  1. Press ENTER to continue with the CURRENT cart contents")
+	fmt.Println("  2. Press ESC to cancel and manually edit your cart")
+	fmt.Println()
+	fmt.Print("⏳ Your choice: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		input, err := reader.ReadByte()
+		if err != nil {
+			return false, fmt.Errorf("failed to read input: %w", err)
+		}
+
+		if input == '\n' || input == '\r' {
+			fmt.Println()
+			fmt.Println("✓ User confirmed to proceed with CURRENT cart contents (will not add another item)")
+			return false, nil // Don't add to cart, use existing cart
+		}
+
+		if input == 27 { // ESC key
+			fmt.Println()
+			fmt.Println("⚠️  User requested cancellation")
+			return false, fmt.Errorf("user canceled due to unexpected cart contents")
+		}
+	}
+}
+
 func (f *FastCheckout) ApplyStoreCredit(amount float64) error {
 	fmt.Printf("💰 Applying $%.2f store credit (API)...\n", amount)
 
@@ -1473,23 +1693,47 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		return fmt.Errorf("failed to load session: %w", err)
 	}
 
-	if !f.config.SkipAddToCart {
-		skuID, err := f.GetSKUFromBrowser(automation, f.config.ItemURL)
-		if err != nil {
-			return fmt.Errorf("failed to get SKU ID: %w", err)
-		}
-
-		if err := f.AddToCart(skuID, automation); err != nil {
-			return fmt.Errorf("failed to add to cart: %w", err)
-		}
-	} else {
-		fmt.Println("⏭️  Skipping add to cart (item already in cart)")
+	// Always get SKU ID for validation, even if skipping add to cart
+	skuID, err := f.GetSKUFromBrowser(automation, f.config.ItemURL)
+	if err != nil {
+		return fmt.Errorf("failed to get SKU ID: %w", err)
 	}
 
-	// OPTIMIZATION: Query cart totals once before credit application
+	// Check cart state BEFORE trying to add to cart
+	fmt.Println("🔍 Checking current cart state...")
 	cartTotal, maxCredit, err := f.GetCartTotals()
 	if err != nil {
 		return fmt.Errorf("failed to query cart totals: %w", err)
+	}
+
+	// Validate existing cart contents before adding
+	shouldAdd, err := f.ValidateCartContents(skuID, cartTotal)
+	if err != nil {
+		return fmt.Errorf("cart validation failed: %w", err)
+	}
+
+	// Now add to cart if not skipping AND if cart validation says it's safe to add
+	if !f.config.SkipAddToCart && shouldAdd {
+		if err := f.AddToCart(skuID, automation); err != nil {
+			return fmt.Errorf("failed to add to cart: %w", err)
+		}
+
+		// Re-query cart totals after adding
+		cartTotal, maxCredit, err = f.GetCartTotals()
+		if err != nil {
+			return fmt.Errorf("failed to query cart totals after add: %w", err)
+		}
+
+		// Validate again after adding to cart
+		fmt.Println("🔍 Validating cart after adding item...")
+		_, err = f.ValidateCartContents(skuID, cartTotal)
+		if err != nil {
+			return fmt.Errorf("post-add cart validation failed: %w", err)
+		}
+	} else if !shouldAdd {
+		fmt.Println("⏭️  Skipping add to cart (proceeding with current cart contents)")
+	} else {
+		fmt.Println("⏭️  Skipping add to cart (item already in cart)")
 	}
 
 	if f.config.AutoApplyCredit {
@@ -1632,49 +1876,68 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 		fmt.Printf("✓ Using cached billing address: %s\n", f.cachedAddressID)
 	}
 
-	// Phase 1: Aggressive add-to-cart retries
-	fmt.Println()
-	fmt.Println("═══════════════════════════════════════════════════════════")
-	fmt.Println("           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)")
-	fmt.Println("═══════════════════════════════════════════════════════════")
+	// Check cart state BEFORE starting aggressive add-to-cart retries
+	fmt.Println("🔍 Checking current cart state before starting...")
+	preCheckCartTotal, _, err := f.GetCartTotals()
+	if err != nil {
+		return fmt.Errorf("failed to query initial cart totals: %w", err)
+	}
 
-	attemptNum := 0
+	// Validate existing cart contents before Phase 1
+	shouldAdd, err := f.ValidateCartContents(skuID, preCheckCartTotal)
+	if err != nil {
+		return fmt.Errorf("pre-flight cart validation failed: %w", err)
+	}
+
+	// Track overall timing
 	startTime := time.Now()
 
-	for {
-		attemptNum++
-		now := time.Now()
+	// Phase 1: Aggressive add-to-cart retries (only if validation says to add)
+	if shouldAdd {
+		fmt.Println()
+		fmt.Println("═══════════════════════════════════════════════════════════")
+		fmt.Println("           PHASE 1: ADD TO CART (AGGRESSIVE RETRY)")
+		fmt.Println("═══════════════════════════════════════════════════════════")
 
-		if now.After(endRetryTime) {
-			elapsed := time.Since(startTime)
-			return fmt.Errorf("failed to add to cart after %d attempts in %v - retry window expired", attemptNum, elapsed)
+		attemptNum := 0
+
+		for {
+			attemptNum++
+			now := time.Now()
+
+			if now.After(endRetryTime) {
+				elapsed := time.Since(startTime)
+				return fmt.Errorf("failed to add to cart after %d attempts in %v - retry window expired", attemptNum, elapsed)
+			}
+
+			remaining := endRetryTime.Sub(now)
+
+			if attemptNum == 1 || attemptNum%50 == 0 {
+				fmt.Printf("🔄 Attempt %d - Time remaining: %v\n", attemptNum, remaining.Round(time.Second))
+			}
+
+			// Try to add to cart (without retry logic inside - we handle retries here)
+			err := f.addToCartSingleAttempt(skuID, automation)
+			if err == nil {
+				elapsed := time.Since(startTime)
+				fmt.Printf("\n✅ Successfully added to cart after %d attempts in %v!\n\n", attemptNum, elapsed)
+				break
+			}
+
+			// Ultra-fast retry delays
+			var delay time.Duration
+			if isOutOfStockError(err) {
+				delay = time.Duration(5+rand.Intn(15)) * time.Millisecond // 5-20ms
+			} else if isRateLimitError(err) {
+				delay = time.Duration(50+rand.Intn(100)) * time.Millisecond // 50-150ms
+			} else {
+				delay = time.Duration(5+rand.Intn(25)) * time.Millisecond // 5-30ms
+			}
+
+			time.Sleep(delay)
 		}
-
-		remaining := endRetryTime.Sub(now)
-
-		if attemptNum == 1 || attemptNum%50 == 0 {
-			fmt.Printf("🔄 Attempt %d - Time remaining: %v\n", attemptNum, remaining.Round(time.Second))
-		}
-
-		// Try to add to cart (without retry logic inside - we handle retries here)
-		err := f.addToCartSingleAttempt(skuID, automation)
-		if err == nil {
-			elapsed := time.Since(startTime)
-			fmt.Printf("\n✅ Successfully added to cart after %d attempts in %v!\n\n", attemptNum, elapsed)
-			break
-		}
-
-		// Ultra-fast retry delays
-		var delay time.Duration
-		if isOutOfStockError(err) {
-			delay = time.Duration(5+rand.Intn(15)) * time.Millisecond // 5-20ms
-		} else if isRateLimitError(err) {
-			delay = time.Duration(50+rand.Intn(100)) * time.Millisecond // 50-150ms
-		} else {
-			delay = time.Duration(5+rand.Intn(25)) * time.Millisecond // 5-30ms
-		}
-
-		time.Sleep(delay)
+	} else {
+		fmt.Println("⏭️  Skipping Phase 1 (proceeding with current cart contents)")
 	}
 
 	// Phase 2: Aggressive checkout retries
@@ -1682,10 +1945,17 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	fmt.Println("           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)")
 	fmt.Println("═══════════════════════════════════════════════════════════")
 
-	// Query cart totals once
+	// Query cart totals after Phase 1
 	cartTotal, maxCredit, err := f.GetCartTotals()
 	if err != nil {
 		return fmt.Errorf("failed to query cart totals: %w", err)
+	}
+
+	// Validate cart contents after Phase 1 (add-to-cart) and before applying credit
+	fmt.Println("🔍 Validating cart before proceeding with purchase...")
+	_, err = f.ValidateCartContents(skuID, cartTotal)
+	if err != nil {
+		return fmt.Errorf("pre-purchase cart validation failed: %w", err)
 	}
 
 	if f.config.AutoApplyCredit {

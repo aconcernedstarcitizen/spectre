@@ -27,16 +27,40 @@ jobs:
       run: go test -v ./...
 
     - name: Build for macOS (amd64)
-      run: GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o specter-macos-amd64 .
+      run: |
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o specter .
+        mkdir -p specter-macos-amd64
+        mv specter specter-macos-amd64/
+        cp config.yaml specter-macos-amd64/
+        cp -r lang specter-macos-amd64/
+        zip -r specter-macos-amd64.zip specter-macos-amd64
 
     - name: Build for macOS (arm64)
-      run: GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o specter-macos-arm64 .
+      run: |
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o specter .
+        mkdir -p specter-macos-arm64
+        mv specter specter-macos-arm64/
+        cp config.yaml specter-macos-arm64/
+        cp -r lang specter-macos-arm64/
+        zip -r specter-macos-arm64.zip specter-macos-arm64
 
     - name: Build for Windows (amd64)
-      run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o specter-windows-amd64.exe .
+      run: |
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o specter.exe .
+        mkdir -p specter-windows-amd64
+        mv specter.exe specter-windows-amd64/
+        cp config.yaml specter-windows-amd64/
+        cp -r lang specter-windows-amd64/
+        zip -r specter-windows-amd64.zip specter-windows-amd64
 
     - name: Build for Linux (amd64)
-      run: GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o specter-linux-amd64 .
+      run: |
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o specter .
+        mkdir -p specter-linux-amd64
+        mv specter specter-linux-amd64/
+        cp config.yaml specter-linux-amd64/
+        cp -r lang specter-linux-amd64/
+        zip -r specter-linux-amd64.zip specter-linux-amd64
 
     - name: Generate release tag
       id: tag
@@ -50,11 +74,21 @@ jobs:
         body: |
           Automated release from commit ${{ github.sha }}
 
-          **Included binaries:**
-          - specter-macos-amd64: macOS Intel binary
-          - specter-macos-arm64: macOS Apple Silicon binary
-          - specter-windows-amd64.exe: Windows binary
-          - specter-linux-amd64: Linux binary
+          **Download Instructions:**
+          1. Download the ZIP file for your platform below
+          2. Extract the ZIP file to a folder
+          3. The folder contains:
+             - `specter` (or `specter.exe` on Windows) - The executable
+             - `config.yaml` - Configuration file
+             - `lang/` - Language files (English + Russian)
+          4. Edit `config.yaml` to set your preferences
+          5. Run `specter` from the command line
+
+          **Included packages:**
+          - specter-macos-amd64.zip: macOS Intel package
+          - specter-macos-arm64.zip: macOS Apple Silicon package
+          - specter-windows-amd64.zip: Windows package
+          - specter-linux-amd64.zip: Linux package
 
           **Features:**
           - ⚡ Ultra-fast API-based checkout (<1 second)
@@ -63,8 +97,9 @@ jobs:
           - 🔐 reCAPTCHA v3 Enterprise support with fresh tokens per attempt
           - 🤖 Smart rate limit handling (50-150ms backoff)
           - 💳 Automatic store credit application
+          - 🌍 Multi-language support (English, Russian) - auto-detects system locale
         files: |
-          specter-macos-amd64
-          specter-macos-arm64
-          specter-windows-amd64.exe
-          specter-linux-amd64
+          specter-macos-amd64.zip
+          specter-macos-arm64.zip
+          specter-windows-amd64.zip
+          specter-linux-amd64.zip
