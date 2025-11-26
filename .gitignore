@@ -10,9 +10,6 @@ dist/
 *.a
 *.so
 
-# Configuration (may contain sensitive URLs or settings)
-config.yaml
-
 # Browser profile data
 browser-profile/
 specter-data/

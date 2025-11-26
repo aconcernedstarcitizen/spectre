@@ -1,0 +1,94 @@
+# Specter - RSI Store Automated Checkout Configuration
+# This file controls how the program behaves during checkout
+
+# ============================================================================
+# BASIC SETTINGS
+# ============================================================================
+
+# The URL of the ship/item you want to purchase
+# Example: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Hull-E-10-Year"
+# Leave empty to specify via command line: ./specter --url "..."
+item_url: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Hull-E-10-Year"
+
+# Browser settings
+browser_profile_path: ""  # Leave empty to use default location (~/.specter/browser-profile)
+browser_type: chrome      # chrome, edge, or firefox
+headless: false           # Set to true to hide the browser window
+keep_browser_open: true   # Keep browser open after completion (useful for verification)
+
+# ============================================================================
+# RETRY & TIMING SETTINGS (for limited ship sales)
+# ============================================================================
+
+# Delay between retry attempts (in milliseconds)
+# These create human-like, variable delays to avoid detection
+# Default: 29-107ms (randomized between these values)
+retry_delay_min_ms: 29
+retry_delay_max_ms: 107
+
+# Sale timing window configuration
+# These settings define how long before and after the sale time to keep trying
+# This accounts for sales starting early or drops happening after the scheduled time
+
+# How many seconds BEFORE the sale starts to begin attempting purchases
+# Default: 600 seconds (10 minutes)
+# The script will start trying 10 minutes early to catch early releases
+start_before_sale_seconds: 600
+
+# How many seconds AFTER the sale time to continue attempting
+# Default: 900 seconds (15 minutes)
+# The script will continue for 15 minutes after sale time to catch late drops
+continue_after_sale_seconds: 900
+
+# Total sale window = start_before + continue_after (default: 25 minutes total)
+
+# reCAPTCHA v3 Enterprise Configuration
+# Required for limited edition ship sales to bypass bot detection
+# Site key for RSI store (do not change unless RSI updates their system)
+recaptcha_site_key: "6LerBOgUAAAAAKPg6vsAFPTN66Woz-jBClxdQU-o"
+
+# reCAPTCHA action for add to cart (do not change)
+recaptcha_action: "store/cart/add"
+
+# ============================================================================
+# CHECKOUT SETTINGS
+# ============================================================================
+
+# Automatically apply store credit to purchase
+# Set to false if you want to pay with credit card
+auto_apply_credit: true
+
+# Skip adding to cart (useful if item is already in your cart)
+# Set to true if you're retrying a failed checkout
+skip_add_to_cart: false
+
+# ============================================================================
+# TESTING & DEBUG
+# ============================================================================
+
+# Dry run mode: stops before final purchase (for testing)
+dry_run: false
+
+# Debug mode: shows detailed technical information
+debug_mode: false
+
+# ============================================================================
+# ADVANCED SETTINGS (usually don't need to change these)
+# ============================================================================
+
+page_load_timeout: 30      # Seconds to wait for pages to load
+min_delay_between: 0.5     # Minimum delay between actions (seconds)
+max_delay_between: 1.0     # Maximum delay between actions (seconds)
+checkout_ready_delay: 2    # Seconds to wait before starting checkout
+
+viewport_width: 1920       # Browser window width
+viewport_height: 1080      # Browser window height
+
+# CSS Selectors (only change if RSI updates their website)
+selectors:
+    add_to_cart_button: .m-storeAction__button
+    cart_icon: .a-button__icon
+    checkout_button: .checkout-button, .btn-checkout, button:contains('Checkout')
+    apply_credit_button: .apply-credit, .store-credit, button:contains('Apply Credit')
+    agree_checkbox: input[type='checkbox'][name*='agree'], input[type='checkbox'][name*='terms']
+    final_checkout_button: .final-checkout, .confirm-order, button:contains('Confirm')
