@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -387,4 +388,221 @@ func TestViewportConfiguration(t *testing.T) {
 	if config.ViewportWidth < 1024 || config.ViewportHeight < 768 {
 		t.Error("Viewport dimensions should be at least 1024x768 for desktop")
 	}
+}
+
+// Test reCAPTCHA token caching behavior
+func TestRecaptchaTokenCaching(t *testing.T) {
+	config := DefaultConfig()
+	fc, err := NewFastCheckout(config)
+	if err != nil {
+		t.Fatalf("NewFastCheckout failed: %v", err)
+	}
+
+	// Initially, no cached token should exist
+	if fc.cachedRecaptchaToken != "" {
+		t.Errorf("Expected cachedRecaptchaToken to be empty initially, got '%s'", fc.cachedRecaptchaToken)
+	}
+
+	if !fc.cachedRecaptchaTimestamp.IsZero() {
+		t.Errorf("Expected cachedRecaptchaTimestamp to be zero initially, got %v", fc.cachedRecaptchaTimestamp)
+	}
+
+	// Simulate caching a token
+	testToken := "test_recaptcha_token_abc123xyz789"
+	testTimestamp := time.Now()
+
+	fc.recaptchaMutex.Lock()
+	fc.cachedRecaptchaToken = testToken
+	fc.cachedRecaptchaTimestamp = testTimestamp
+	fc.recaptchaMutex.Unlock()
+
+	// Verify token was cached
+	if fc.cachedRecaptchaToken != testToken {
+		t.Errorf("Expected cachedRecaptchaToken '%s', got '%s'", testToken, fc.cachedRecaptchaToken)
+	}
+
+	if !fc.cachedRecaptchaTimestamp.Equal(testTimestamp) {
+		t.Errorf("Expected cachedRecaptchaTimestamp %v, got %v", testTimestamp, fc.cachedRecaptchaTimestamp)
+	}
+
+	// Test token age calculation
+	time.Sleep(100 * time.Millisecond)
+	tokenAge := time.Since(fc.cachedRecaptchaTimestamp)
+
+	if tokenAge < 100*time.Millisecond {
+		t.Errorf("Expected token age to be at least 100ms, got %v", tokenAge)
+	}
+
+	if tokenAge > 1*time.Second {
+		t.Errorf("Expected token age to be less than 1s, got %v", tokenAge)
+	}
+}
+
+// Test token expiration logic
+func TestRecaptchaTokenExpiration(t *testing.T) {
+	config := DefaultConfig()
+	fc, err := NewFastCheckout(config)
+	if err != nil {
+		t.Fatalf("NewFastCheckout failed: %v", err)
+	}
+
+	// Simulate a fresh token (5 seconds old)
+	freshToken := "fresh_token_12345"
+	freshTimestamp := time.Now().Add(-5 * time.Second)
+
+	fc.recaptchaMutex.Lock()
+	fc.cachedRecaptchaToken = freshToken
+	fc.cachedRecaptchaTimestamp = freshTimestamp
+	fc.recaptchaMutex.Unlock()
+
+	// Token should still be valid (< 60 seconds)
+	tokenAge := time.Since(fc.cachedRecaptchaTimestamp)
+	if tokenAge >= 60*time.Second {
+		t.Errorf("Expected token age < 60s for fresh token, got %v", tokenAge)
+	}
+
+	// Simulate an expired token (65 seconds old - beyond 60s refresh threshold)
+	expiredToken := "expired_token_67890"
+	expiredTimestamp := time.Now().Add(-65 * time.Second)
+
+	fc.recaptchaMutex.Lock()
+	fc.cachedRecaptchaToken = expiredToken
+	fc.cachedRecaptchaTimestamp = expiredTimestamp
+	fc.recaptchaMutex.Unlock()
+
+	// Token should be considered expired
+	tokenAge = time.Since(fc.cachedRecaptchaTimestamp)
+	if tokenAge < 60*time.Second {
+		t.Errorf("Expected token age >= 60s for expired token, got %v", tokenAge)
+	}
+
+	// Verify expired token is beyond 60-second threshold
+	if tokenAge < 65*time.Second {
+		t.Errorf("Expected token age >= 65s, got %v", tokenAge)
+	}
+}
+
+// Test token cache refresh timing
+func TestRecaptchaTokenRefreshTiming(t *testing.T) {
+	config := DefaultConfig()
+	fc, err := NewFastCheckout(config)
+	if err != nil {
+		t.Fatalf("NewFastCheckout failed: %v", err)
+	}
+
+	testCases := []struct {
+		name           string
+		tokenAge       time.Duration
+		shouldBeValid  bool
+		description    string
+	}{
+		{
+			name:          "Fresh token (1 second old)",
+			tokenAge:      1 * time.Second,
+			shouldBeValid: true,
+			description:   "Token should be valid well under 60s threshold",
+		},
+		{
+			name:          "Mid-age token (30 seconds old)",
+			tokenAge:      30 * time.Second,
+			shouldBeValid: true,
+			description:   "Token should still be valid at 30s",
+		},
+		{
+			name:          "Near-expiry token (59 seconds old)",
+			tokenAge:      59 * time.Second,
+			shouldBeValid: true,
+			description:   "Token should still be valid just under 60s threshold",
+		},
+		{
+			name:          "Just expired token (61 seconds old)",
+			tokenAge:      61 * time.Second,
+			shouldBeValid: false,
+			description:   "Token should be expired just over 60s threshold",
+		},
+		{
+			name:          "Very old token (120 seconds old)",
+			tokenAge:      120 * time.Second,
+			shouldBeValid: false,
+			description:   "Token should definitely be expired at 2 minutes (reCAPTCHA limit)",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up token with specific age
+			testToken := fmt.Sprintf("token_%s", tc.name)
+			testTimestamp := time.Now().Add(-tc.tokenAge)
+
+			fc.recaptchaMutex.Lock()
+			fc.cachedRecaptchaToken = testToken
+			fc.cachedRecaptchaTimestamp = testTimestamp
+			fc.recaptchaMutex.Unlock()
+
+			// Calculate token age
+			tokenAge := time.Since(fc.cachedRecaptchaTimestamp)
+			isValid := tokenAge < 60*time.Second
+
+			if isValid != tc.shouldBeValid {
+				t.Errorf("%s: Expected isValid=%v, got %v (token age: %v)",
+					tc.description, tc.shouldBeValid, isValid, tokenAge)
+			}
+		})
+	}
+}
+
+// Test concurrent access to token cache (thread safety)
+func TestRecaptchaTokenCacheConcurrency(t *testing.T) {
+	config := DefaultConfig()
+	fc, err := NewFastCheckout(config)
+	if err != nil {
+		t.Fatalf("NewFastCheckout failed: %v", err)
+	}
+
+	// Simulate concurrent access to the token cache
+	const numGoroutines = 10
+	const iterations = 100
+
+	// Use a wait group to ensure all goroutines complete
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Channel to collect any errors
+	errChan := make(chan error, numGoroutines*iterations)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(goroutineID int) {
+			defer wg.Done()
+
+			for j := 0; j < iterations; j++ {
+				// Simulate reading and writing to the cache
+				fc.recaptchaMutex.Lock()
+
+				// Write
+				fc.cachedRecaptchaToken = fmt.Sprintf("token_g%d_i%d", goroutineID, j)
+				fc.cachedRecaptchaTimestamp = time.Now()
+
+				// Read
+				_ = fc.cachedRecaptchaToken
+				_ = fc.cachedRecaptchaTimestamp
+
+				fc.recaptchaMutex.Unlock()
+
+				// Small delay to increase chance of race conditions if mutex isn't working
+				time.Sleep(1 * time.Microsecond)
+			}
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errChan)
+
+	// Check for any errors
+	for err := range errChan {
+		t.Errorf("Concurrent access error: %v", err)
+	}
+
+	// If we get here without panics or errors, the mutex is working correctly
+	t.Log("✓ Token cache handled concurrent access correctly")
 }

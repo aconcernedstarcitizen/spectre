@@ -10,6 +10,7 @@ import (
 	"net/http/cookiejar"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-rod/rod"
@@ -26,6 +27,11 @@ type FastCheckout struct {
 	csrfToken        string
 	userAgent        string
 	cachedAddressID  string // Cached billing address for speed
+
+	// reCAPTCHA token caching (tokens valid for 2 minutes, we refresh every 1 minute)
+	cachedRecaptchaToken     string
+	cachedRecaptchaTimestamp time.Time
+	recaptchaMutex           sync.Mutex
 }
 
 type GraphQLRequest struct {
@@ -622,6 +628,52 @@ func (f *FastCheckout) GetRecaptchaToken(automation *Automation, action string) 
 	return "", fmt.Errorf("reCAPTCHA token generation timeout after 5s (debug state: %s)", debugStr)
 }
 
+// GetOrRefreshCachedRecaptchaToken returns a cached reCAPTCHA token if it's less than 60 seconds old,
+// otherwise generates a fresh token and caches it. This improves performance during aggressive retry loops.
+func (f *FastCheckout) GetOrRefreshCachedRecaptchaToken(automation *Automation, action string) (string, error) {
+	f.recaptchaMutex.Lock()
+	defer f.recaptchaMutex.Unlock()
+
+	now := time.Now()
+	tokenAge := now.Sub(f.cachedRecaptchaTimestamp)
+
+	// Use cached token if it's less than 60 seconds old (well under 2-minute expiration)
+	if f.cachedRecaptchaToken != "" && tokenAge < 60*time.Second {
+		if f.config.DebugMode {
+			fmt.Printf("[DEBUG] 🔄 Reusing cached reCAPTCHA token (age: %v, valid for: %v more)\n",
+				tokenAge.Round(time.Second),
+				(60*time.Second - tokenAge).Round(time.Second))
+		}
+		return f.cachedRecaptchaToken, nil
+	}
+
+	// Token is missing or expired (>60s) - generate fresh token
+	if f.cachedRecaptchaToken != "" {
+		fmt.Printf("♻️  reCAPTCHA token expired (age: %v) - generating fresh token...\n", tokenAge.Round(time.Second))
+	} else {
+		fmt.Println("🔐 Generating initial reCAPTCHA token...")
+	}
+
+	token, err := f.GetRecaptchaToken(automation, action)
+	if err != nil {
+		return "", err
+	}
+
+	// Cache the new token with current timestamp
+	f.cachedRecaptchaToken = token
+	f.cachedRecaptchaTimestamp = now
+
+	if token != "" && len(token) > 10 {
+		tokenPreview := token
+		if len(token) > 30 {
+			tokenPreview = token[:30] + "..."
+		}
+		fmt.Printf("✅ Fresh reCAPTCHA token cached (valid for 60s): %s\n", tokenPreview)
+	}
+
+	return token, nil
+}
+
 func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 	fmt.Printf("🛒 Adding to cart (API) with retry mechanism...\n")
 	fmt.Printf("[DEBUG] SKU ID: %s\n", skuID)
@@ -1163,7 +1215,8 @@ func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline
 			}
 		}
 
-		recaptchaToken, err := f.GetRecaptchaToken(automation, "store/cart/validate")
+		// Use cached token (refreshed automatically every 60 seconds)
+		recaptchaToken, err := f.GetOrRefreshCachedRecaptchaToken(automation, "store/cart/validate")
 		if err != nil {
 			fmt.Printf("⚠️  Warning: Failed to get reCAPTCHA token: %v\n", err)
 		}
