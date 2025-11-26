@@ -1197,6 +1197,12 @@ func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline
 		fmt.Printf("⏱️  Will retry validation for up to %d seconds\n", f.config.RetryDurationSeconds)
 	}
 
+	// Generate mark ONCE and reuse for all retry attempts (matches browser behavior)
+	// The browser uses a constant mark throughout the validation session
+	// Mark is a random 10-digit number (range: 1000000000 to 9999999999)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	mark := fmt.Sprintf("%d", 1000000000+rng.Intn(9000000000))
+
 	attemptNum := 0
 
 	for {
@@ -1220,8 +1226,6 @@ func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline
 		if err != nil {
 			fmt.Printf("⚠️  Warning: Failed to get reCAPTCHA token: %v\n", err)
 		}
-
-		mark := fmt.Sprintf("%d", time.Now().Unix())
 
 		mutation := `mutation CartValidateCartMutation($storeFront: String, $token: String, $mark: String) {
   store(name: $storeFront) {
@@ -1482,11 +1486,6 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		fmt.Println("⏭️  Skipping add to cart (item already in cart)")
 	}
 
-	fmt.Println("➡️  Moving to billing step...")
-	if err := f.NextStep(); err != nil {
-		return fmt.Errorf("failed to move to billing: %w", err)
-	}
-
 	// OPTIMIZATION: Query cart totals once before credit application
 	cartTotal, maxCredit, err := f.GetCartTotals()
 	if err != nil {
@@ -1516,9 +1515,9 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 	}
 
 	if cartTotal == 0 {
-		fmt.Println("➡️  Moving to addresses step (total is $0)...")
+		fmt.Println("➡️  Moving to billing/addresses step...")
 		if err := f.NextStep(); err != nil {
-			return fmt.Errorf("failed to move to addresses: %w", err)
+			return fmt.Errorf("failed to move to billing/addresses: %w", err)
 		}
 
 		// OPTIMIZATION: Cache address ID if not already cached
@@ -1689,11 +1688,6 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 		return fmt.Errorf("failed to query cart totals: %w", err)
 	}
 
-	fmt.Println("➡️  Moving to billing step...")
-	if err := f.NextStep(); err != nil {
-		return fmt.Errorf("failed to move to billing: %w", err)
-	}
-
 	if f.config.AutoApplyCredit {
 		creditToApply := cartTotal
 		if creditToApply > maxCredit {
@@ -1710,9 +1704,9 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	}
 
 	if cartTotal == 0 {
-		fmt.Println("➡️  Moving to addresses step...")
+		fmt.Println("➡️  Moving to billing/addresses step...")
 		if err := f.NextStep(); err != nil {
-			return fmt.Errorf("failed to move to addresses: %w", err)
+			return fmt.Errorf("failed to move to billing/addresses: %w", err)
 		}
 
 		if err := f.AssignBillingAddress(f.cachedAddressID); err != nil {
