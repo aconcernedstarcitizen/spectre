@@ -619,8 +619,8 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 	retryDeadline := startTime.Add(time.Duration(totalWindow) * time.Second)
 	attemptNum := 0
 
-	mutation := `mutation AddCartMultiItemMutation($query: [CartAddInput!], $token: String, $mark: String) {
-  store(name: "pledge") {
+	mutation := `mutation AddCartMultiItemMutation($storeFront: String!, $query: [CartAddInput!], $token: String, $mark: String) {
+  store(name: $storeFront) {
     cart {
       mutations {
         addMany(query: $query, token: $token, mark: $mark) {
@@ -688,6 +688,7 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		unixTimestamp := fmt.Sprintf("%d", time.Now().Unix())
 
 		variables := map[string]interface{}{
+			"storeFront": "pledge",
 			"query": []map[string]interface{}{
 				{
 					"qty":   1,
