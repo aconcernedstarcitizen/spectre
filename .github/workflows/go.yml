@@ -58,9 +58,10 @@ jobs:
 
           **Features:**
           - ⚡ Ultra-fast API-based checkout (<1 second)
-          - 🔐 reCAPTCHA v3 Enterprise support
-          - 🎯 Smart retry with rate limit detection
-          - ⏱️  Configurable sale window (start early, continue after)
+          - 🔄 Aggressive retry system (50-200 attempts/second with 5-20ms delays)
+          - ⏰ Timed Sale Mode (automatic start 10 min before, continue 20 min after)
+          - 🔐 reCAPTCHA v3 Enterprise support with fresh tokens per attempt
+          - 🤖 Smart rate limit handling (50-150ms backoff)
           - 💳 Automatic store credit application
         files: |
           specter-macos-amd64

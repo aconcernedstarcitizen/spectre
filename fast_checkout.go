@@ -387,6 +387,7 @@ func isRateLimitError(err error) bool {
 	errStr := err.Error()
 	return strings.Contains(errStr, "429") ||
 		strings.Contains(errStr, "rate limit") ||
+		strings.Contains(errStr, "rate-limit") ||
 		strings.Contains(errStr, "too many requests") ||
 		strings.Contains(errStr, "throttle") ||
 		strings.Contains(errStr, "4227")

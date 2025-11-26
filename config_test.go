@@ -33,20 +33,28 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected RetryDurationSeconds to be 300, got %d", config.RetryDurationSeconds)
 	}
 
-	if config.RetryDelayMinMs != 29 {
-		t.Errorf("Expected RetryDelayMinMs to be 29, got %d", config.RetryDelayMinMs)
+	if config.RetryDelayMinMs != 5 {
+		t.Errorf("Expected RetryDelayMinMs to be 5, got %d", config.RetryDelayMinMs)
 	}
 
-	if config.RetryDelayMaxMs != 107 {
-		t.Errorf("Expected RetryDelayMaxMs to be 107, got %d", config.RetryDelayMaxMs)
+	if config.RetryDelayMaxMs != 20 {
+		t.Errorf("Expected RetryDelayMaxMs to be 20, got %d", config.RetryDelayMaxMs)
 	}
 
-	if config.StartBeforeSaleSeconds != 600 {
-		t.Errorf("Expected StartBeforeSaleSeconds to be 600, got %d", config.StartBeforeSaleSeconds)
+	if config.StartBeforeSaleMinutes != 10 {
+		t.Errorf("Expected StartBeforeSaleMinutes to be 10, got %d", config.StartBeforeSaleMinutes)
 	}
 
-	if config.ContinueAfterSaleSeconds != 900 {
-		t.Errorf("Expected ContinueAfterSaleSeconds to be 900, got %d", config.ContinueAfterSaleSeconds)
+	if config.ContinueAfterSaleMinutes != 20 {
+		t.Errorf("Expected ContinueAfterSaleMinutes to be 20, got %d", config.ContinueAfterSaleMinutes)
+	}
+
+	if config.EnableSaleTiming != false {
+		t.Error("Expected EnableSaleTiming to be false by default")
+	}
+
+	if config.SaleStartTime != "" {
+		t.Errorf("Expected SaleStartTime to be empty by default, got '%s'", config.SaleStartTime)
 	}
 
 	if config.RecaptchaSiteKey == "" {
