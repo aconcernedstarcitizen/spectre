@@ -317,11 +317,24 @@ session_csrf_not_found: "⚠️  CSRF token not found, will try without it"
 session_browser_not_initialized: "browser not initialized"
 
 # SKU Extraction - Active Page
-sku_extracting_current_page: "🔍 Extracting SKU from current page..."
+sku_extracting_validating: "🔍 Extracting and validating SKU from product page..."
+sku_validated_cached: "✓ SKU validated and cached: %s"
+sku_using_cached_slug: "✓ Using cached SKU slug: %s"
+sku_extracting_current_page: "🔍 Extracting SKU (using incognito context in existing browser)..."
 sku_extracted_html_fallback: "✓ Extracted SKU slug from HTML: %s"
 sku_extracted_page: "✓ Extracted SKU slug from page: %s"
+sku_trying_incognito: "🔍 Trying incognito window (SKU not available on logged-in page)..."
+sku_could_not_get_url: "could not get current URL from page"
 sku_slug_not_found: "SKU slug not found on current page"
 sku_browser_not_available: "browser page not available"
+
+# SKU Validation Errors
+sku_validation_failed_header: "╔═══════════════════════════════════════════════════════════╗\n║                  ❌ SKU VALIDATION FAILED                 ║\n╚═══════════════════════════════════════════════════════════╝"
+sku_validation_failed_url: "URL: %s"
+sku_validation_failed_reason: "This page is NOT a valid ship/item page.\nThe page does not contain a valid SKU (product identifier)."
+sku_validation_failed_fix: "How to fix:"
+sku_validation_failed_step1: "  1. Update config.yaml with a valid ship URL from the RSI store"
+sku_validation_failed_step2: "  2. Or use: ./specter -url \"https://robertsspaceindustries.com/pledge/ships/...\""
 
 # SKU Operations - URL Based
 sku_extracting_from_url: "🔍 Extracting SKU slug from %s..."
@@ -339,9 +352,11 @@ cart_added_successfully: "✓ Added to cart successfully!"
 cart_success_after_attempts: "🎉 Success after %d attempt(s) in %v"
 cart_sale_window_expired: "❌ Sale window expired after %d attempts in %v"
 cart_captcha_fast_retry: "🔐 Attempt %d: CAPTCHA verification needed - fast retry in %dms (remaining: %v)..."
-cart_rate_limited_retry: "⚠️  Attempt %d: Rate limited (4227) - fast retry in %dms (remaining: %v)..."
-cart_out_of_stock_retry: "⏳ Attempt %d: Out of stock (4226) - fast retry (remaining: %v)..."
-cart_attempt_failed_retry: "⚠️  Attempt %d failed (%v) - fast retry in %dms (remaining: %v)..."
+cart_payment_auth_4227_retry: "💳 Attempt %d: Payment auth error (4227) - retry in %dms (remaining: %v)..."
+cart_payment_auth_4226_retry: "💳 Attempt %d: Payment auth error (4226) - retry in %dms (remaining: %v)..."
+cart_rate_limited_retry: "⚠️  Attempt %d: Rate limited - retry in %dms (remaining: %v)..."
+cart_out_of_stock_retry: "⏳ Attempt %d: Out of stock - fast retry (remaining: %v)..."
+cart_attempt_failed_retry: "⚠️  Attempt %d failed (%v) - retry in %dms (remaining: %v)..."
 
 # Cart Operations - Query
 cart_querying_totals: "📊 Querying cart totals..."
@@ -390,6 +405,10 @@ recaptcha_warning_may_fail: "   The script will continue without tokens, but may
 # Credit Operations - Detailed
 credit_applying_api: "💰 Applying $%.2f store credit (API)..."
 credit_applied_response: "✓ Store credit applied: %s"
+credit_insufficient_error_header: "╔═══════════════════════════════════════════════════════════╗\n║          ❌ INSUFFICIENT STORE CREDIT AVAILABLE           ║\n╚═══════════════════════════════════════════════════════════╝"
+credit_insufficient_error_message: "You do not have enough store credits to complete this purchase."
+credit_insufficient_attempted_amount: "Attempted to apply: $%.2f"
+credit_insufficient_instructions: "Please adjust your purchase or add more store credits to your account."
 
 # Address Operations - Detailed
 address_fetching: "📋 Fetching billing address..."
@@ -409,9 +428,10 @@ validation_order_created: "✓ Order has been created!"
 validation_success_attempts: "🎉 Success after %d attempt(s) in %v"
 validation_window_expired: "❌ Sale window expired after %d validation attempts in %v"
 validation_timeout: "❌ Retry timeout reached after %d attempts in %v"
-validation_rate_limited: "⚠️  Attempt %d: Rate limited (4227) during validation - fast retry in %dms (remaining: %v)..."
-validation_out_of_stock: "⏳ Attempt %d: Item unavailable (4226) during validation - fast retry (remaining: %v)..."
-validation_failed_retry: "⚠️  Attempt %d failed (%v) - fast retry in %dms (remaining: %v)..."
+validation_payment_auth_4227: "💳 Attempt %d: Payment auth error (4227) - retry in %dms (remaining: %v)..."
+validation_payment_auth_4226: "💳 Attempt %d: Payment auth error (4226) - retry in %dms (remaining: %v)..."
+validation_out_of_stock: "⏳ Attempt %d: Item unavailable - retry (remaining: %v)..."
+validation_failed_retry: "⚠️  Attempt %d failed (%v) - retry in %dms (remaining: %v)..."
 
 # Checkout Flow - Fast Checkout
 checkout_fast_header_line1: "╔═══════════════════════════════════════════════════════════╗"

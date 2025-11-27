@@ -23,6 +23,16 @@ type Config struct {
 	RetryDelayMinMs      int `yaml:"retry_delay_min_ms"`
 	RetryDelayMaxMs      int `yaml:"retry_delay_max_ms"`
 
+	// Error-specific retry delays (in milliseconds)
+	Payment4227MinMs    int `yaml:"payment_4227_min_ms"`    // Payment auth error 4227 min delay
+	Payment4227MaxMs    int `yaml:"payment_4227_max_ms"`    // Payment auth error 4227 max delay
+	Payment4226MinMs    int `yaml:"payment_4226_min_ms"`    // Payment auth error 4226 min delay
+	Payment4226MaxMs    int `yaml:"payment_4226_max_ms"`    // Payment auth error 4226 max delay
+	RateLimitMinMs      int `yaml:"rate_limit_min_ms"`      // Rate limit min delay
+	RateLimitMaxMs      int `yaml:"rate_limit_max_ms"`      // Rate limit max delay
+	OutOfStockDelayMs   int `yaml:"out_of_stock_delay_ms"`  // Out of stock delay
+	GenericErrorDelayMs int `yaml:"generic_error_delay_ms"` // Generic error delay
+
 	// Sale timing configuration
 	StartBeforeSaleMinutes   int `yaml:"start_before_sale_minutes"`   // Start retrying X minutes before sale
 	ContinueAfterSaleMinutes int `yaml:"continue_after_sale_minutes"` // Continue retrying X minutes after sale
@@ -71,6 +81,14 @@ func DefaultConfig() *Config {
 		RetryDurationSeconds:     300,
 		RetryDelayMinMs:          5,    // Ultra-fast retries
 		RetryDelayMaxMs:          20,   // Ultra-fast retries
+		Payment4227MinMs:    1300,  // Payment auth 4227: 1.3-2.1 seconds
+		Payment4227MaxMs:    2100,
+		Payment4226MinMs:    500,   // Payment auth 4226: 500-700ms
+		Payment4226MaxMs:    700,
+		RateLimitMinMs:      50,    // Rate limit: 50-150ms
+		RateLimitMaxMs:      150,
+		OutOfStockDelayMs:   100,   // Out of stock: 100ms
+		GenericErrorDelayMs: 100,   // Generic errors: 100ms
 		StartBeforeSaleMinutes:   10,   // Start 10 minutes before sale
 		ContinueAfterSaleMinutes: 20,   // Continue 20 minutes after sale
 		SaleStartTime:            "",   // Set to RFC3339 format for timed sales

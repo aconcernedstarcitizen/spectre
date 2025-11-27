@@ -58,14 +58,18 @@
 
 **CartValidateCartMutation** (Finalize order):
 - REQUIRES reCAPTCHA v3 Enterprise token
-- REQUIRES random 10-digit "mark" parameter (1000000000-9999999999)
+- REQUIRES random "mark" parameter matching RSI's logic: `Math.floor(Math.random() * 10000000000)` (0-9999999999)
 - Mark should be generated ONCE per validation session and reused across retries
 
-**Error Codes**:
-- `4226` = Out of stock → Ultra-fast retry (5-20ms)
-- `4227` = Rate limited → Fast retry with backoff (50-150ms)
+**Error Codes** (CRITICAL - UPDATED 2025-01-27):
+- `4226` = **Payment auth error** → Retry with 500-700ms delay (configurable)
+- `4227` = **Payment auth error** → Retry with 1300-2100ms delay (configurable)
 - `CFUException` = CAPTCHA required → Get reCAPTCHA token
 - `TyUnknownCustomerException` = Not logged in → Prompt user to login
+- HTTP 429 or "rate limit" text = Actual rate limit → 50-150ms delay (configurable)
+- "out of stock" / "not available" = Out of stock → 100ms delay (configurable)
+
+**IMPORTANT**: 4226 and 4227 are NOT stock/rate limit errors. They are payment authorization errors from RSI's payment processor.
 
 ### 3. Optimization History (DO NOT REVERT)
 
@@ -81,10 +85,13 @@ These optimizations are PERMANENT. Do not revert them:
 - Saved: 100-300ms per call (used 2x)
 - Function: GetCartTotalsAndItems() returns CartInfo struct
 
-**Optimization 3**: Eliminated incognito browser for SKU extraction
-- Why: Can extract from already-open main browser window
-- Saved: 150-450ms
-- Function: GetSKUFromActivePage() replaces GetSKUFromBrowser()
+**Optimization 3**: HTTP-based SKU extraction (UPDATED 2025-01-27)
+- Why: Use HTTP client instead of opening incognito browser window
+- Method: HTTP GET + regex extraction of SKU slug before login
+- Saved: 140-400ms (HTTP request ~10-50ms vs incognito window ~150-450ms)
+- Function: extractAndCacheSKU() in automation.go
+- Timing: Runs BEFORE login prompt, validates page is valid ship page
+- Caches: SKU slug in automation.cachedSKU
 
 **Optimization 4**: Cached billing address
 - Why: Address doesn't change between checkouts
@@ -96,14 +103,22 @@ These optimizations are PERMANENT. Do not revert them:
 - Saved: 500-1500ms in aggressive retry loops
 - Function: GetOrRefreshCachedRecaptchaToken()
 
-**Optimization 6**: Mathematical cart total calculation
-- Why: cartTotal - creditApplied = $0 (no need to re-query)
-- Saved: 50-100ms
+**Optimization 6**: Mathematical cart total calculation (UPDATED 2025-01-27)
+- Why: Use item.Price instead of cartTotal for credit calculation (handles tax in regions like Ukraine)
+- Rationale: Store credit items never have tax; item price is the true amount for single items
+- Saved: Prevents incorrect credit amounts in taxed regions
+- Location: RunFastCheckout() and RunTimedSaleCheckout()
 
 **Optimization 7**: Pre-flight checks in timed sale mode
 - Why: Catch errors BEFORE waiting for sale window
 - Benefit: Better UX, errors caught early
 - Location: RunTimedSaleCheckout() - checks run before sleep
+
+**Optimization 8**: Configurable retry delays (ADDED 2025-01-27)
+- Why: Allow users to tune delays based on their network/testing
+- Config fields: payment_4227_min_ms, payment_4227_max_ms, payment_4226_min_ms, payment_4226_max_ms, rate_limit_min_ms, rate_limit_max_ms, out_of_stock_delay_ms, generic_error_delay_ms
+- Default values optimized for production use
+- Location: config.go defaults, used in AddToCart() and ValidateCartWithDeadline()
 
 ### 4. Design Patterns to Follow
 
@@ -125,24 +140,34 @@ Cart validation returns `(bool, error)`:
 - `(false, nil)` = Skip add, proceed with current cart
 - `(false, error)` = User cancelled or validation error
 
-**Pattern 3: Error Classification**
+**Pattern 3: Error Classification** (UPDATED 2025-01-27)
 
 Always classify errors by type to determine retry strategy:
-- `isOutOfStockError()` → Minimal retry delay
-- `isRateLimitError()` → Slight backoff
+- `isPaymentAuthError(err)` → Returns (is4226, is4227) for payment auth errors
+  - 4227: 1.3-2.1s delay (configurable)
+  - 4226: 500-700ms delay (configurable)
+- `isOutOfStockError()` → 100ms delay (configurable)
+- `isRateLimitError()` → 50-150ms delay (configurable, only for actual HTTP 429/rate limit text)
 - `isCaptchaError()` → Get reCAPTCHA token
 - `isNotLoggedInError()` → Prompt user login
 
-**Pattern 4: Aggressive Retry with Minimal Backoff**
+**CRITICAL**: Do NOT check for 4226/4227 in isOutOfStockError() or isRateLimitError(). They are payment auth errors.
 
-For timed sale mode, use ultra-fast retries:
+**Pattern 4: Smart Retry Based on Error Type** (UPDATED 2025-01-27)
+
+Use appropriate delays based on error classification:
 ```go
-if isOutOfStockError(err) {
-    delay = time.Duration(5+rand.Intn(15)) * time.Millisecond  // 5-20ms
+is4226, is4227 := isPaymentAuthError(err)
+if is4227 {
+    delay = time.Duration(f.config.Payment4227MinMs + rand.Intn(f.config.Payment4227MaxMs-f.config.Payment4227MinMs+1)) * time.Millisecond
+} else if is4226 {
+    delay = time.Duration(f.config.Payment4226MinMs + rand.Intn(f.config.Payment4226MaxMs-f.config.Payment4226MinMs+1)) * time.Millisecond
+} else if isOutOfStockError(err) {
+    delay = time.Duration(f.config.OutOfStockDelayMs) * time.Millisecond
 }
 ```
 
-Rationale: Out of stock = "not available YET", retry ASAP
+Rationale: Different errors need different backoff strategies. Payment auth errors need longer delays.
 
 ### 5. Localization is Mandatory
 
@@ -183,10 +208,20 @@ fmt.Println(T("session_extracting"))
 - User-Agent from navigator.userAgent
 - All used for API requests
 
-**SKU Extraction**:
-- Primary: JavaScript eval of page data (`data-rsi-component-props`)
-- Fallback: Regex on HTML source
-- DO NOT launch incognito browser (optimization #3)
+**SKU Extraction** (UPDATED 2025-01-27):
+- **When**: BEFORE login prompt (validates page is valid ship page)
+- **Method**: HTTP GET request + regex extraction from HTML
+- **Why**: HTTP client is faster (~10-50ms) than browser automation (~150-450ms)
+- **Flow**:
+  1. Browser navigates to item URL (user sees page)
+  2. extractAndCacheSKU() uses HTTP client to fetch same URL
+  3. Regex extracts SKU slug from HTML: `"skuSlug":\s*"([^"]+)"`
+  4. If SKU not found → Clear error message with instructions
+  5. If valid → Cache in automation.cachedSKU
+  6. Show login prompt to user
+  7. After login → Convert SKU slug to SKU ID via GraphQL
+- **Function**: extractAndCacheSKU() in automation.go
+- **Error Handling**: Shows detailed error if page is not a valid ship page
 
 ### 7. Timed Sale Mode Context
 
@@ -524,4 +559,4 @@ When in doubt, read this file first. When making changes, update this file if in
 
 ---
 
-**Last Updated**: Session with performance optimizations + localization system + technical documentation (2024-11-26)
+**Last Updated**: Session with critical bug fixes + error code reclassification + HTTP-based SKU validation + configurable retry delays (2025-01-27)

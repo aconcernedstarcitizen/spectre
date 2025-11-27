@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -23,6 +26,7 @@ type Automation struct {
 	rand         *rand.Rand
 	stopChan     chan bool
 	itemInCart   bool
+	cachedSKU    string // SKU extracted and validated before login
 }
 
 func NewAutomation(config *Config) *Automation {
@@ -284,6 +288,11 @@ func (a *Automation) waitForLogin() error {
 		}
 
 		fmt.Println(T("product_page_loaded"))
+
+		// Extract and validate SKU BEFORE login prompt
+		if err := a.extractAndCacheSKU(); err != nil {
+			return err
+		}
 	}
 
 	fmt.Println(T("browser_configured"))
@@ -451,7 +460,81 @@ func (a *Automation) preloadRecaptcha() {
 	a.debugLog(T("recaptcha_timeout_after"))
 }
 
+// extractAndCacheSKU extracts the SKU from the current page and caches it
+// This is called BEFORE login to validate the page is a valid ship page
+// Uses HTTP client instead of browser for speed and simplicity
+func (a *Automation) extractAndCacheSKU() error {
+	fmt.Println(T("sku_extracting_validating"))
 
+	// Get current URL
+	currentURL, err := a.page.Eval(`() => window.location.href`)
+	if err != nil || currentURL.Value.Str() == "" {
+		return fmt.Errorf(T("sku_could_not_get_url"))
+	}
+	itemURL := currentURL.Value.Str()
+
+	// Fetch page HTML using HTTP client (much faster than opening browser window)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	req, err := http.NewRequest("GET", itemURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Set User-Agent to mimic browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch page: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("page returned HTTP %d: %s", resp.StatusCode, itemURL)
+	}
+
+	// Read response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read page body: %w", err)
+	}
+	htmlContent := string(bodyBytes)
+
+	// Extract SKU slug using regex
+	re := regexp.MustCompile(`"skuSlug":\s*"([^"]+)"`)
+	matches := re.FindStringSubmatch(htmlContent)
+
+	var skuSlugStr string
+	if len(matches) > 1 {
+		skuSlugStr = matches[1]
+	}
+
+	// Validate SKU was found
+	if skuSlugStr == "" || skuSlugStr == "null" || skuSlugStr == "<nil>" {
+		fmt.Println()
+		fmt.Println(T("sku_validation_failed_header"))
+		fmt.Println()
+		fmt.Printf(T("sku_validation_failed_url")+"\n", itemURL)
+		fmt.Println(T("sku_validation_failed_reason"))
+		fmt.Println()
+		fmt.Println(T("sku_validation_failed_fix"))
+		fmt.Println(T("sku_validation_failed_step1"))
+		fmt.Println(T("sku_validation_failed_step2"))
+		fmt.Println()
+		return fmt.Errorf("SKU validation failed: page is not a valid ship page")
+	}
+
+	// Cache the SKU slug (we'll convert to SKU ID later in fast_checkout)
+	a.cachedSKU = skuSlugStr
+	fmt.Printf(T("sku_validated_cached")+"\n", skuSlugStr)
+
+	return nil
+}
 
 func contains(s string, substrs ...string) bool {
 	s = toLower(s)

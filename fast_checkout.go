@@ -293,17 +293,52 @@ func (f *FastCheckout) GetSKUFromURL(itemURL string) (string, error) {
 	return skuID, nil
 }
 
-// GetSKUFromActivePage extracts SKU from the currently open browser page
-// OPTIMIZATION: Eliminates need for incognito browser, saving 150-450ms
+// GetSKUFromActivePage extracts SKU ID from the SKU slug (cached from before login)
+// The slug was already extracted and validated before login, so we just convert it to ID
 func (f *FastCheckout) GetSKUFromActivePage(automation *Automation) (string, error) {
+	// Use cached SKU slug if available (extracted before login)
+	if automation != nil && automation.cachedSKU != "" {
+		fmt.Printf(T("sku_using_cached_slug")+"\n", automation.cachedSKU)
+		return f.getSKUIDFromSlug(automation.cachedSKU)
+	}
+
+	// Fallback: Extract fresh if not cached (shouldn't happen in normal flow)
 	fmt.Println(T("sku_extracting_current_page"))
 
-	if automation == nil || automation.page == nil {
+	if automation == nil || automation.page == nil || automation.browser == nil {
 		return "", fmt.Errorf(T("sku_browser_not_available"))
 	}
 
-	// Extract SKU slug from page data
-	skuSlug, err := automation.page.Eval(`() => {
+	// Get current URL from the active page
+	currentURL, err := automation.page.Eval(`() => window.location.href`)
+	if err != nil || currentURL.Value.Str() == "" {
+		return "", fmt.Errorf(T("sku_could_not_get_url"))
+	}
+	itemURL := currentURL.Value.Str()
+
+	// Create incognito browser context in the existing browser
+	// This ensures SKU is visible even when user is logged in
+	incognito, err := automation.browser.Incognito()
+	if err != nil {
+		return "", fmt.Errorf("failed to create incognito context: %w", err)
+	}
+	defer incognito.MustClose()
+
+	// Navigate to the item page in incognito
+	incognitoPage := incognito.MustPage()
+	defer incognitoPage.MustClose()
+	incognitoPage = incognitoPage.Timeout(30 * time.Second)
+
+	if err := incognitoPage.Navigate(itemURL); err != nil {
+		return "", fmt.Errorf("failed to navigate to item page in incognito: %w", err)
+	}
+
+	if err := incognitoPage.WaitLoad(); err != nil {
+		return "", fmt.Errorf("failed to wait for page load in incognito: %w", err)
+	}
+
+	// Extract SKU slug from incognito page using JavaScript
+	incognitoSkuSlug, err := incognitoPage.Eval(`() => {
 		const div = document.querySelector('[data-rsi-component="SkuDetailPage"]');
 		if (!div) return null;
 		const props = div.getAttribute('data-rsi-component-props');
@@ -316,25 +351,25 @@ func (f *FastCheckout) GetSKUFromActivePage(automation *Automation) (string, err
 		}
 	}`)
 
-	if err != nil || skuSlug.Value.Str() == "" || skuSlug.Value.Str() == "null" {
-		// Fallback: parse HTML source
-		htmlSource, htmlErr := automation.page.HTML()
-		if htmlErr == nil {
-			re := regexp.MustCompile(`"skuSlug":\s*"([^"]+)"`)
-			matches := re.FindStringSubmatch(htmlSource)
-			if len(matches) > 1 {
-				skuSlugStr := matches[1]
-				fmt.Printf(T("sku_extracted_html_fallback")+"\n", skuSlugStr)
-				return f.getSKUIDFromSlug(skuSlugStr)
-			}
-		}
-		return "", fmt.Errorf(T("sku_slug_not_found"))
+	if err == nil && incognitoSkuSlug.Value.Str() != "" && incognitoSkuSlug.Value.Str() != "null" {
+		skuSlugStr := incognitoSkuSlug.Value.Str()
+		fmt.Printf(T("sku_extracted_incognito")+"\n", skuSlugStr)
+		return f.getSKUIDFromSlug(skuSlugStr)
 	}
 
-	skuSlugStr := skuSlug.Value.Str()
-	fmt.Printf(T("sku_extracted_page")+"\n", skuSlugStr)
+	// Fallback: Try HTML regex on incognito page
+	incognitoHTML, htmlErr := incognitoPage.HTML()
+	if htmlErr == nil {
+		re := regexp.MustCompile(`"skuSlug":\s*"([^"]+)"`)
+		matches := re.FindStringSubmatch(incognitoHTML)
+		if len(matches) > 1 {
+			skuSlugStr := matches[1]
+			fmt.Printf(T("sku_extracted_incognito_html")+"\n", skuSlugStr)
+			return f.getSKUIDFromSlug(skuSlugStr)
+		}
+	}
 
-	return f.getSKUIDFromSlug(skuSlugStr)
+	return "", fmt.Errorf(T("sku_slug_not_found"))
 }
 
 func (f *FastCheckout) getSKUIDFromSlug(skuSlugStr string) (string, error) {
@@ -412,8 +447,7 @@ func isRateLimitError(err error) bool {
 		strings.Contains(errStr, "rate limit") ||
 		strings.Contains(errStr, "rate-limit") ||
 		strings.Contains(errStr, "too many requests") ||
-		strings.Contains(errStr, "throttle") ||
-		strings.Contains(errStr, "4227")
+		strings.Contains(errStr, "throttle")
 }
 
 func isOutOfStockError(err error) bool {
@@ -421,10 +455,17 @@ func isOutOfStockError(err error) bool {
 		return false
 	}
 	errStr := err.Error()
-	return strings.Contains(errStr, "4226") ||
-		strings.Contains(errStr, "out of stock") ||
+	return strings.Contains(errStr, "out of stock") ||
 		strings.Contains(errStr, "not available") ||
 		strings.Contains(errStr, "unavailable")
+}
+
+func isPaymentAuthError(err error) (is4226 bool, is4227 bool) {
+	if err == nil {
+		return false, false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "4226"), strings.Contains(errStr, "4227")
 }
 
 func isCaptchaError(err error) bool {
@@ -838,11 +879,28 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 		}
 
 		var delay time.Duration
+		is4226, is4227 := isPaymentAuthError(err)
 		isRateLimited := isRateLimitError(err)
 		isOutOfStock := isOutOfStockError(err)
 		isCaptchaFail := isCaptchaError(err)
 
-		if isCaptchaFail {
+		if is4227 {
+			// Payment auth error 4227 - configurable backoff
+			delayMs := f.config.Payment4227MinMs + rand.Intn(f.config.Payment4227MaxMs-f.config.Payment4227MinMs+1)
+			delay = time.Duration(delayMs) * time.Millisecond
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf(T("cart_payment_auth_4227_retry")+"\n",
+					attemptNum, delayMs, remaining.Round(time.Second))
+			}
+		} else if is4226 {
+			// Payment auth error 4226 - configurable backoff
+			delayMs := f.config.Payment4226MinMs + rand.Intn(f.config.Payment4226MaxMs-f.config.Payment4226MinMs+1)
+			delay = time.Duration(delayMs) * time.Millisecond
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf(T("cart_payment_auth_4226_retry")+"\n",
+					attemptNum, delayMs, remaining.Round(time.Second))
+			}
+		} else if isCaptchaFail {
 			// Minimal delay for CAPTCHA - just retry immediately with new token
 			delayMs := 5 + rand.Intn(15) // 5-20ms - extremely fast
 			delay = time.Duration(delayMs) * time.Millisecond
@@ -852,29 +910,27 @@ func (f *FastCheckout) AddToCart(skuID string, automation *Automation) error {
 					attemptNum, delayMs, remaining.Round(time.Second))
 			}
 		} else if isRateLimited {
-			// Aggressive rate limit handling - minimal backoff
-			delayMs := 50 + rand.Intn(100) // 50-150ms instead of 2000-5000ms
+			// Rate limit handling - configurable
+			delayMs := f.config.RateLimitMinMs + rand.Intn(f.config.RateLimitMaxMs-f.config.RateLimitMinMs+1)
 			delay = time.Duration(delayMs) * time.Millisecond
 			fmt.Printf(T("cart_rate_limited_retry")+"\n",
 				attemptNum, delayMs, remaining.Round(time.Second))
 		} else if isOutOfStock {
-			// Out of stock - minimal delay, keep hammering
-			delayMs := 5 + rand.Intn(15) // 5-20ms - extremely fast
-			delay = time.Duration(delayMs) * time.Millisecond
+			// Out of stock - configurable delay
+			delay = time.Duration(f.config.OutOfStockDelayMs) * time.Millisecond
 
 			if attemptNum%10 == 0 {
 				fmt.Printf(T("cart_out_of_stock_retry")+"\n",
 					attemptNum, remaining.Round(time.Second))
 			}
 		} else {
-			// Generic error - minimal delay
-			delayMs := 5 + rand.Intn(25) // 5-30ms
-			delay = time.Duration(delayMs) * time.Millisecond
+			// Generic/other errors - configurable delay
+			delay = time.Duration(f.config.GenericErrorDelayMs) * time.Millisecond
 
 			attemptDuration := time.Since(attemptStart)
 			if attemptNum <= 5 || attemptNum%20 == 0 {
 				fmt.Printf(T("cart_attempt_failed_retry")+"\n",
-					attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+					attemptNum, attemptDuration, f.config.GenericErrorDelayMs, remaining.Round(time.Second))
 			}
 		}
 
@@ -1329,6 +1385,21 @@ func (f *FastCheckout) ApplyStoreCredit(amount float64) error {
 
 	resp, err := f.graphqlRequestWithLoginRetry(request)
 	if err != nil {
+		// Check for insufficient credit error
+		errStr := err.Error()
+		if strings.Contains(errStr, "You don't have that many credits available") ||
+			strings.Contains(errStr, "CFUValidationException") && strings.Contains(errStr, "amount:") {
+			// User-friendly error message for insufficient credits
+			fmt.Println()
+			fmt.Println(T("credit_insufficient_error_header"))
+			fmt.Println()
+			fmt.Println(T("credit_insufficient_error_message"))
+			fmt.Printf(T("credit_insufficient_attempted_amount")+"\n", amount)
+			fmt.Println()
+			fmt.Println(T("credit_insufficient_instructions"))
+			fmt.Println()
+			return fmt.Errorf("insufficient store credits available")
+		}
 		return fmt.Errorf("apply credit failed: %w", err)
 	}
 
@@ -1566,9 +1637,9 @@ func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline
 
 	// Generate mark ONCE and reuse for all retry attempts (matches browser behavior)
 	// The browser uses a constant mark throughout the validation session
-	// Mark is a random 10-digit number (range: 1000000000 to 9999999999)
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	mark := fmt.Sprintf("%d", 1000000000+rng.Intn(9000000000))
+	// Mark matches RSI's logic: Math.floor(Math.random() * 10000000000)
+	// This generates a random integer from 0 to 9999999999 (not guaranteed to be 10 digits)
+	mark := fmt.Sprintf("%d", rand.Intn(10000000000))
 
 	attemptNum := 0
 
@@ -1713,33 +1784,41 @@ func (f *FastCheckout) ValidateCartWithDeadline(automation *Automation, deadline
 		}
 
 		var delay time.Duration
-		isRateLimited := isRateLimitError(err)
+		is4226, is4227 := isPaymentAuthError(err)
 		isOutOfStock := isOutOfStockError(err)
 
-		if isRateLimited {
-			// Minimal backoff for rate limits during validation
-			delayMs := 50 + rand.Intn(100) // 50-150ms instead of 2000-5000ms
+		if is4227 {
+			// Payment auth error 4227 - configurable backoff
+			delayMs := f.config.Payment4227MinMs + rand.Intn(f.config.Payment4227MaxMs-f.config.Payment4227MinMs+1)
 			delay = time.Duration(delayMs) * time.Millisecond
-			fmt.Printf(T("validation_rate_limited")+"\n",
-				attemptNum, delayMs, remaining.Round(time.Second))
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf(T("validation_payment_auth_4227")+"\n",
+					attemptNum, delayMs, remaining.Round(time.Second))
+			}
+		} else if is4226 {
+			// Payment auth error 4226 - configurable backoff
+			delayMs := f.config.Payment4226MinMs + rand.Intn(f.config.Payment4226MaxMs-f.config.Payment4226MinMs+1)
+			delay = time.Duration(delayMs) * time.Millisecond
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf(T("validation_payment_auth_4226")+"\n",
+					attemptNum, delayMs, remaining.Round(time.Second))
+			}
 		} else if isOutOfStock {
-			// Minimal delay for out of stock during validation
-			delayMs := 5 + rand.Intn(15) // 5-20ms
-			delay = time.Duration(delayMs) * time.Millisecond
+			// Out of stock - configurable delay
+			delay = time.Duration(f.config.OutOfStockDelayMs) * time.Millisecond
 
 			if attemptNum%10 == 0 {
 				fmt.Printf(T("validation_out_of_stock")+"\n",
 					attemptNum, remaining.Round(time.Second))
 			}
 		} else {
-			// Generic error during validation - minimal delay
-			delayMs := 5 + rand.Intn(25) // 5-30ms
-			delay = time.Duration(delayMs) * time.Millisecond
+			// Generic/other errors - configurable delay
+			delay = time.Duration(f.config.GenericErrorDelayMs) * time.Millisecond
 
 			attemptDuration := time.Since(attemptStart)
 			if attemptNum <= 5 || attemptNum%20 == 0 {
 				fmt.Printf(T("validation_failed_retry")+"\n",
-					attemptNum, attemptDuration, delayMs, remaining.Round(time.Second))
+					attemptNum, attemptDuration, f.config.GenericErrorDelayMs, remaining.Round(time.Second))
 			}
 		}
 
@@ -1883,6 +1962,13 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 
 	cartTotal := cartInfo.Total
 	maxCredit := cartInfo.MaxCredit
+	var itemPrice float64
+
+	// Calculate item price from cart (for tax handling)
+	// Store credit items don't have tax, so we use item price as the true total
+	if len(cartInfo.Items) > 0 {
+		itemPrice = cartInfo.Items[0].Price
+	}
 
 	// Now add to cart if not skipping AND if cart validation says it's safe to add
 	if !f.config.SkipAddToCart && shouldAdd {
@@ -1890,10 +1976,15 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 			return fmt.Errorf("failed to add to cart: %w", err)
 		}
 
-		// Re-query cart totals after adding
-		cartTotal, maxCredit, err = f.GetCartTotals()
+		// Re-query cart info after adding
+		cartInfo, err = f.GetCartTotalsAndItems()
 		if err != nil {
-			return fmt.Errorf("failed to query cart totals after add: %w", err)
+			return fmt.Errorf("failed to query cart info after add: %w", err)
+		}
+		cartTotal = cartInfo.Total
+		maxCredit = cartInfo.MaxCredit
+		if len(cartInfo.Items) > 0 {
+			itemPrice = cartInfo.Items[0].Price
 		}
 
 		// OPTIMIZATION: Skip post-add validation - we just successfully added the item,
@@ -1907,9 +1998,11 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 	}
 
 	if f.config.AutoApplyCredit {
-		creditToApply := cartTotal
+		// Use item price instead of cart total (handles tax in some regions)
+		// Store credit items don't have tax, item price is the correct amount
+		creditToApply := itemPrice
 		if creditToApply > maxCredit {
-			fmt.Printf(T("credit_total_exceeds_max_apply")+"\n", cartTotal, maxCredit)
+			fmt.Printf(T("credit_total_exceeds_max_apply")+"\n", itemPrice, maxCredit)
 			fmt.Printf(T("credit_applying_maximum")+"\n", maxCredit)
 			creditToApply = maxCredit
 		}
@@ -2108,14 +2201,23 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 				break
 			}
 
-			// Ultra-fast retry delays
+			// Retry delays based on error type
 			var delay time.Duration
-			if isOutOfStockError(err) {
-				delay = time.Duration(5+rand.Intn(15)) * time.Millisecond // 5-20ms
+			is4226, is4227 := isPaymentAuthError(err)
+
+			if is4227 {
+				delayMs := f.config.Payment4227MinMs + rand.Intn(f.config.Payment4227MaxMs-f.config.Payment4227MinMs+1)
+				delay = time.Duration(delayMs) * time.Millisecond
+			} else if is4226 {
+				delayMs := f.config.Payment4226MinMs + rand.Intn(f.config.Payment4226MaxMs-f.config.Payment4226MinMs+1)
+				delay = time.Duration(delayMs) * time.Millisecond
 			} else if isRateLimitError(err) {
-				delay = time.Duration(50+rand.Intn(100)) * time.Millisecond // 50-150ms
+				delayMs := f.config.RateLimitMinMs + rand.Intn(f.config.RateLimitMaxMs-f.config.RateLimitMinMs+1)
+				delay = time.Duration(delayMs) * time.Millisecond
+			} else if isOutOfStockError(err) {
+				delay = time.Duration(f.config.OutOfStockDelayMs) * time.Millisecond
 			} else {
-				delay = time.Duration(5+rand.Intn(25)) * time.Millisecond // 5-30ms
+				delay = time.Duration(f.config.GenericErrorDelayMs) * time.Millisecond
 			}
 
 			time.Sleep(delay)
@@ -2129,10 +2231,16 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	fmt.Println("           PHASE 2: CHECKOUT (AGGRESSIVE RETRY)")
 	fmt.Println("═══════════════════════════════════════════════════════════")
 
-	// Query cart totals after Phase 1
-	cartTotal, maxCredit, err := f.GetCartTotals()
+	// Query cart info after Phase 1
+	cartInfo, err := f.GetCartTotalsAndItems()
 	if err != nil {
-		return fmt.Errorf("failed to query cart totals: %w", err)
+		return fmt.Errorf("failed to query cart info: %w", err)
+	}
+	cartTotal := cartInfo.Total
+	maxCredit := cartInfo.MaxCredit
+	var itemPrice float64
+	if len(cartInfo.Items) > 0 {
+		itemPrice = cartInfo.Items[0].Price
 	}
 
 	// OPTIMIZATION: Skip post-Phase-1 validation - Phase 1 successfully added the item,
@@ -2141,9 +2249,11 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	fmt.Println("✓ Phase 1 complete, proceeding to Phase 2 (validation skipped for speed)")
 
 	if f.config.AutoApplyCredit {
-		creditToApply := cartTotal
+		// Use item price instead of cart total (handles tax in some regions)
+		// Store credit items don't have tax, item price is the correct amount
+		creditToApply := itemPrice
 		if creditToApply > maxCredit {
-			fmt.Printf("⚠️  Cart total ($%.2f) exceeds max credit ($%.2f) - applying max\n", cartTotal, maxCredit)
+			fmt.Printf("⚠️  Item price ($%.2f) exceeds max credit ($%.2f) - applying max\n", itemPrice, maxCredit)
 			creditToApply = maxCredit
 		}
 

@@ -10,7 +10,13 @@
 
 ### What is This?
 
-Specter is a tool that automatically buys limited-edition ships from the Star Citizen store (robertsspaceindustries.com) at lightning speed. When ships sell out in seconds, this gives you the best chance to complete your purchase.
+Specter is a tool that automatically buys limited-edition ships from the Star Citizen store (robertsspaceindustries.com) at lightning speed using **store credit only**. When ships sell out in seconds, this gives you the best chance to complete your purchase.
+
+**⚠️ IMPORTANT LIMITATIONS:**
+- ✅ **Works ONLY with store credit** - Cannot process credit card or PayPal payments
+- ✅ **Single ship purchases only** - Designed for buying one ship at a time
+- ❌ Does NOT work for cash/credit card purchases
+- ❌ Does NOT work for game packages or multi-item purchases
 
 **Key Features:**
 - ⚡ **Ultra-fast checkout** - Completes purchase in under 1 second once item is in cart!
@@ -27,8 +33,11 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 **What You Need:**
 - A computer (Windows 10/11 or Mac)
 - Google Chrome browser installed (strongly recommended - avoids download issues)
-- A Star Citizen account with store credit
+- **A Star Citizen account with SUFFICIENT store credit** - The app ONLY works with store credit payments
+- The ship must be purchasable as a single standalone item (not a package)
 - Basic computer skills (opening files, running programs)
+
+**⚠️ CRITICAL:** You must have enough store credit in your RSI account to cover the full price of the ship. The app cannot use credit cards, PayPal, or any other payment method.
 
 **Note:** Specter will automatically use your installed Chrome browser if available. If Chrome is not installed, it will download a temporary browser (may require antivirus exclusions on Windows).
 
@@ -408,9 +417,13 @@ A: No! Just follow the instructions above. If you can open files and type comman
 A: Make sure you:
 - Logged in successfully (Step 1)
 - Put the correct ship URL (check it in your browser first)
-- Have enough store credit in your account
+- **Have enough store credit in your account to cover the FULL ship price**
+- The ship is a standalone ship (not a game package)
 - Have a fast internet connection
 - Used the correct time format for timed mode (ending with Z)
+
+**Q: Can I use a credit card or PayPal instead of store credit?**
+A: **No.** Specter ONLY works with store credit purchases. You must have sufficient store credit in your RSI account before running the tool. If you don't have enough store credit, the purchase will fail.
 
 **Q: Can I use this for multiple ships?**
 A: Yes! Create multiple config files (like `carrack.yaml`, `idris.yaml`) with different URLs, then run: `specter.exe --config carrack.yaml`
@@ -481,6 +494,12 @@ This happens when Specter tries to download a temporary browser but encounters p
 - Your login expired
 - Run the program again and it will open Chrome for you to login
 
+**"Insufficient store credit available" error**
+- You don't have enough store credit in your RSI account to cover the ship price
+- Check your store credit balance at robertsspaceindustries.com
+- Add more store credit to your account or choose a less expensive ship
+- The app ONLY works with store credit - you cannot use credit cards or PayPal
+
 **"Invalid sale start time format"**
 - Make sure you use the correct format: `YYYY-MM-DDTHH:MM:SSZ`
 - Always end with `Z` for UTC time
@@ -538,7 +557,13 @@ This tool does not collect any data. Everything runs locally on your computer. Y
 
 ### Что это?
 
-Specter - это инструмент, который автоматически покупает лимитированные корабли из магазина Star Citizen (robertsspaceindustries.com) с молниеносной скоростью. Когда корабли распродаются за секунды, это дает вам лучший шанс завершить покупку.
+Specter - это инструмент, который автоматически покупает лимитированные корабли из магазина Star Citizen (robertsspaceindustries.com) с молниеносной скоростью используя **только store credit**. Когда корабли распродаются за секунды, это дает вам лучший шанс завершить покупку.
+
+**⚠️ ВАЖНЫЕ ОГРАНИЧЕНИЯ:**
+- ✅ **Работает ТОЛЬКО со store credit** - Не может обрабатывать оплату картой или PayPal
+- ✅ **Только покупки одного корабля** - Разработан для покупки одного корабля за раз
+- ❌ НЕ работает для покупок за наличные/карту
+- ❌ НЕ работает для игровых пакетов или покупок нескольких предметов
 
 **Основные возможности:**
 - ⚡ **Сверхбыстрое оформление** - Завершает покупку менее чем за 1 секунду после добавления в корзину!
@@ -555,8 +580,11 @@ Specter - это инструмент, который автоматически
 **Что вам нужно:**
 - Компьютер (Windows 10/11 или Mac)
 - Установленный браузер Google Chrome (настоятельно рекомендуется - избегает проблем с загрузкой)
-- Аккаунт Star Citizen со store credit
+- **Аккаунт Star Citizen с ДОСТАТОЧНЫМ количеством store credit** - Приложение работает ТОЛЬКО с оплатой store credit
+- Корабль должен быть доступен для покупки как отдельный standalone предмет (не пакет)
 - Базовые навыки работы с компьютером (открытие файлов, запуск программ)
+
+**⚠️ КРИТИЧЕСКИ ВАЖНО:** У вас должно быть достаточно store credit в вашем аккаунте RSI чтобы покрыть полную стоимость корабля. Приложение не может использовать кредитные карты, PayPal или любой другой метод оплаты.
 
 **Примечание:** Specter автоматически использует ваш установленный Chrome браузер если доступен. Если Chrome не установлен, он загрузит временный браузер (может потребоваться добавление исключений в антивирус на Windows).
 
@@ -919,9 +947,13 @@ continue_after_sale_minutes: 20  # Продолжать попытки X мин�
 О: Убедитесь что вы:
 - Успешно вошли (Шаг 1)
 - Вставили правильный URL корабля (проверьте его в браузере сначала)
-- Имеете достаточно store credit в аккаунте
+- **Имеете достаточно store credit в аккаунте чтобы покрыть ПОЛНУЮ стоимость корабля**
+- Корабль это отдельный standalone корабль (не игровой пакет)
 - Имеете быстрое интернет-соединение
 - Использовали правильный формат времени для режима по расписанию (заканчивающийся на Z)
+
+**В: Могу ли я использовать кредитную карту или PayPal вместо store credit?**
+О: **Нет.** Specter работает ТОЛЬКО с покупками за store credit. У вас должно быть достаточно store credit в вашем аккаунте RSI перед запуском инструмента. Если у вас недостаточно store credit, покупка не удастся.
 
 **В: Можно использовать для нескольких кораблей?**
 О: Да! Создайте несколько config файлов (как `carrack.yaml`, `idris.yaml`) с разными URL, затем запустите: `specter.exe --config carrack.yaml`
@@ -976,6 +1008,12 @@ continue_after_sale_minutes: 20  # Продолжать попытки X мин�
 **"Session expired"**
 - Ваш вход истек
 - Запустите программу снова и она откроет Chrome для входа
+
+**Ошибка "Insufficient store credit available"**
+- У вас недостаточно store credit в аккаунте RSI чтобы покрыть стоимость корабля
+- Проверьте баланс store credit на robertsspaceindustries.com
+- Добавьте больше store credit на ваш аккаунт или выберите менее дорогой корабль
+- Приложение работает ТОЛЬКО со store credit - вы не можете использовать кредитные карты или PayPal
 
 **"Invalid sale start time format"**
 - Убедитесь что используете правильный формат: `YYYY-MM-DDTHH:MM:SSZ`
