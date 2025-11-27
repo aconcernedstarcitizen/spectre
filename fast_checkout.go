@@ -1925,6 +1925,56 @@ func (f *FastCheckout) graphqlRequest(requests []GraphQLRequest) (string, error)
 	return string(body), nil
 }
 
+// isNetworkError checks if an error is a network/timeout error that should be retried
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "context deadline exceeded") ||
+		strings.Contains(errStr, "Client.Timeout") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "EOF") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "network is unreachable") ||
+		strings.Contains(errStr, "no route to host")
+}
+
+// retryOnNetworkError wraps an operation with retry logic for network/timeout errors
+// Retries indefinitely until success or non-network error
+func retryOnNetworkError(operation func() error, operationName string) error {
+	attemptNum := 0
+	for {
+		attemptNum++
+		err := operation()
+
+		if err == nil {
+			// Success!
+			return nil
+		}
+
+		// Check if this is a network error we should retry
+		if isNetworkError(err) {
+			// Network error - retry after a short delay
+			delay := time.Duration(500+rand.Intn(1000)) * time.Millisecond // 500-1500ms
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf("⚠️  %s failed (attempt %d): network error - retrying in %dms...\n",
+					operationName, attemptNum, delay.Milliseconds())
+				if attemptNum <= 3 {
+					fmt.Printf("   Error: %v\n", err)
+				}
+			}
+			time.Sleep(delay)
+			continue
+		}
+
+		// Non-network error - return immediately
+		return err
+	}
+}
+
 func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 	startTime := time.Now()
 
@@ -2008,7 +2058,10 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		}
 
 		if creditToApply > 0 {
-			if err := f.ApplyStoreCredit(creditToApply); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.ApplyStoreCredit(creditToApply)
+			}, "Apply Store Credit")
+			if err != nil {
 				return fmt.Errorf("failed to apply credit: %w", err)
 			}
 			// OPTIMIZATION: We know the total is $0 after applying credit, no need to re-query
@@ -2023,13 +2076,21 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 
 	if cartTotal == 0 {
 		fmt.Println(T("checkout_moving_billing"))
-		if err := f.NextStep(); err != nil {
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Billing Step")
+		if err != nil {
 			return fmt.Errorf("failed to move to billing/addresses: %w", err)
 		}
 
 		// OPTIMIZATION: Cache address ID if not already cached
 		if f.cachedAddressID == "" {
-			addressID, err := f.GetDefaultBillingAddress()
+			var addressID string
+			err := retryOnNetworkError(func() error {
+				var err error
+				addressID, err = f.GetDefaultBillingAddress()
+				return err
+			}, "Get Default Billing Address")
 			if err != nil {
 				return fmt.Errorf("failed to get billing address: %w", err)
 			}
@@ -2041,13 +2102,19 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 			fmt.Printf(T("debug_using_cached_address")+"\n", f.cachedAddressID)
 		}
 
-		if err := f.AssignBillingAddress(f.cachedAddressID); err != nil {
+		err = retryOnNetworkError(func() error {
+			return f.AssignBillingAddress(f.cachedAddressID)
+		}, "Assign Billing Address")
+		if err != nil {
 			return fmt.Errorf("failed to assign billing address: %w", err)
 		}
 
 		if !f.config.DryRun {
 			fmt.Println(T("checkout_completing_order"))
-			if err := f.ValidateCart(automation); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.ValidateCart(automation)
+			}, "Validate Cart")
+			if err != nil {
 				return fmt.Errorf("failed to validate cart: %w", err)
 			}
 			fmt.Println(T("checkout_order_completed"))
@@ -2056,13 +2123,19 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		}
 	} else {
 		fmt.Printf(T("checkout_moving_payment")+"\n", cartTotal)
-		if err := f.NextStep(); err != nil {
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Payment Step")
+		if err != nil {
 			return fmt.Errorf("failed to move to payment: %w", err)
 		}
 
 		if !f.config.DryRun {
 			fmt.Println(T("checkout_completing_payment"))
-			if err := f.NextStep(); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.NextStep()
+			}, "Complete Order")
+			if err != nil {
 				return fmt.Errorf("failed to complete order: %w", err)
 			}
 			fmt.Println(T("checkout_order_completed"))
@@ -2258,7 +2331,10 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 		}
 
 		if creditToApply > 0 {
-			if err := f.ApplyStoreCredit(creditToApply); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.ApplyStoreCredit(creditToApply)
+			}, "Apply Store Credit")
+			if err != nil {
 				return fmt.Errorf("failed to apply credit: %w", err)
 			}
 			cartTotal = 0
@@ -2267,18 +2343,27 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 
 	if cartTotal == 0 {
 		fmt.Println("➡️  Moving to billing/addresses step...")
-		if err := f.NextStep(); err != nil {
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Billing Step")
+		if err != nil {
 			return fmt.Errorf("failed to move to billing/addresses: %w", err)
 		}
 
-		if err := f.AssignBillingAddress(f.cachedAddressID); err != nil {
+		err = retryOnNetworkError(func() error {
+			return f.AssignBillingAddress(f.cachedAddressID)
+		}, "Assign Billing Address")
+		if err != nil {
 			return fmt.Errorf("failed to assign billing address: %w", err)
 		}
 
 		if !f.config.DryRun {
 			fmt.Println("🎯 Completing order with aggressive retries until sale window ends...")
 			// Use the same endRetryTime from the sale window for validation
-			if err := f.ValidateCartWithDeadline(automation, endRetryTime); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.ValidateCartWithDeadline(automation, endRetryTime)
+			}, "Validate Cart")
+			if err != nil {
 				return fmt.Errorf("failed to validate cart: %w", err)
 			}
 			fmt.Println("\n✅ ORDER COMPLETED!")
@@ -2287,13 +2372,19 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 		}
 	} else {
 		fmt.Printf("➡️  Moving to payment step (balance: $%.2f)...\n", cartTotal)
-		if err := f.NextStep(); err != nil {
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Payment Step")
+		if err != nil {
 			return fmt.Errorf("failed to move to payment: %w", err)
 		}
 
 		if !f.config.DryRun {
 			fmt.Println("🎯 Completing order with payment...")
-			if err := f.NextStep(); err != nil {
+			err := retryOnNetworkError(func() error {
+				return f.NextStep()
+			}, "Complete Order")
+			if err != nil {
 				return fmt.Errorf("failed to complete order: %w", err)
 			}
 			fmt.Println("\n✅ ORDER COMPLETED!")
