@@ -46,7 +46,7 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 #### For Windows:
 
 1. **Download Specter:**
-   - Go to: **https://github.com/anthropics/specter/releases**
+   - Go to: **https://github.com/aconcernedstarcitizen/spectre/releases**
    - Download the latest `specter-windows-amd64.zip` file (look for "Assets" section)
    - **Right-click the ZIP file** and select "Extract All..."
    - Extract to a folder (like `C:\Specter`)
@@ -61,7 +61,7 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 #### For Mac:
 
 1. **Download Specter:**
-   - Go to: **https://github.com/anthropics/specter/releases**
+   - Go to: **https://github.com/aconcernedstarcitizen/spectre/releases**
    - Download the latest ZIP file for Mac:
      - `specter-macos-arm64.zip` if you have Apple Silicon (M1/M2/M3/M4)
      - `specter-macos-amd64.zip` if you have an Intel Mac
@@ -593,7 +593,7 @@ Specter - это инструмент, который автоматически
 #### Для Windows:
 
 1. **Скачайте Specter:**
-   - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
+   - Перейдите по ссылке: **https://github.com/aconcernedstarcitizen/spectre/releases**
    - Скачайте последний файл `specter-windows-amd64.zip` (смотрите в разделе "Assets")
    - **Щелкните правой кнопкой мыши на ZIP файл** и выберите "Извлечь все..."
    - Извлеките в папку (например `C:\Specter`)
@@ -608,7 +608,7 @@ Specter - это инструмент, который автоматически
 #### Для Mac:
 
 1. **Скачайте Specter:**
-   - Перейдите по ссылке: **https://github.com/anthropics/specter/releases**
+   - Перейдите по ссылке: **https://github.com/aconcernedstarcitizen/spectre/releases**
    - Скачайте последний ZIP файл для Mac:
      - `specter-macos-arm64.zip` если у вас Apple Silicon (M1/M2/M3/M4)
      - `specter-macos-amd64.zip` если у вас Intel Mac
