@@ -135,10 +135,29 @@ func (a *Automation) setupBrowser() error {
 	// See: https://github.com/go-rod/rod/issues/853
 	useLeakless := runtime.GOOS != "windows"
 
+	// Try to find system Chrome first (avoids download and permission issues)
+	chromePath, chromeExists := launcher.LookPath()
+
+	// Build launcher with proper configuration order
 	a.launcher = launcher.New().
-		Headless(a.config.Headless).
-		UserDataDir(a.config.BrowserProfilePath).
-		Leakless(useLeakless)
+		Leakless(useLeakless).
+		Headless(a.config.Headless)
+
+	// Set custom user data dir to avoid conflicts with running Chrome
+	// IMPORTANT: Must set this before Bin() to ensure it's applied
+	if a.config.BrowserProfilePath != "" {
+		a.launcher = a.launcher.UserDataDir(a.config.BrowserProfilePath)
+		a.debugLog("Browser profile path: %s", a.config.BrowserProfilePath)
+	}
+
+	if chromeExists {
+		a.launcher = a.launcher.Bin(chromePath)
+		fmt.Println("✓ Using system Chrome browser")
+		a.debugLog("Chrome path: %s", chromePath)
+	} else {
+		fmt.Println("ℹ️  System Chrome not found, will download Chromium")
+		// Will use automatic Chromium download (default behavior)
+	}
 
 	if runtime.GOOS == "windows" {
 		fmt.Println("ℹ️  Running on Windows - leakless mode disabled")
@@ -147,9 +166,40 @@ func (a *Automation) setupBrowser() error {
 	url, err := a.launcher.Launch()
 	if err != nil {
 		errMsg := err.Error()
-		if strings.Contains(errMsg, "Opening in existing browser session") {
-			return fmt.Errorf("failed to launch browser: Chrome is already running. Please close all Chrome windows and try again")
+		if strings.Contains(errMsg, "Opening in existing browser session") ||
+			strings.Contains(errMsg, "ProcessSingleton") ||
+			strings.Contains(errMsg, "SingletonLock") {
+			fmt.Println("\n❌ Chrome is already running with the same profile")
+			fmt.Println("\n📋 To fix this issue:")
+			fmt.Println("   1. Close ALL Chrome/Chromium windows completely")
+			if runtime.GOOS == "darwin" {
+				fmt.Println("   2. On Mac: Check Activity Monitor for any Chrome processes")
+				fmt.Println("   3. Or run in Terminal: killall 'Google Chrome'")
+			} else if runtime.GOOS == "windows" {
+				fmt.Println("   2. Check Task Manager for any Chrome processes")
+				fmt.Println("   3. End all Chrome.exe processes")
+			}
+			fmt.Println("   4. Try running Specter again")
+			return fmt.Errorf("browser already running - please close Chrome completely")
 		}
+
+		// Check for permission/access errors during download
+		if strings.Contains(errMsg, "Access is denied") || strings.Contains(errMsg, "permission denied") {
+			fmt.Println("\n❌ Browser download failed due to file permissions")
+			fmt.Println("\n📋 To fix this issue:")
+			fmt.Println("   1. Close ALL Chrome/Chromium processes (check Task Manager)")
+			if runtime.GOOS == "windows" {
+				fmt.Println("   2. Delete folder: %APPDATA%\\rod\\browser")
+				fmt.Println("   3. Add antivirus exclusion for: %APPDATA%\\rod")
+			} else {
+				fmt.Println("   2. Delete folder: ~/Library/Caches/rod/browser")
+			}
+			fmt.Println("   4. Try running again")
+			fmt.Println("\n💡 Alternative: Install Google Chrome and restart the app")
+			fmt.Println("   Download from: https://www.google.com/chrome")
+			return fmt.Errorf("browser setup failed: %w", err)
+		}
+
 		return fmt.Errorf("failed to launch browser: %w", err)
 	}
 

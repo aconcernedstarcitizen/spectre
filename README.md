@@ -25,10 +25,12 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 ### Requirements
 
 **What You Need:**
-- A computer (Windows or Mac)
-- Google Chrome browser installed
+- A computer (Windows 10/11 or Mac)
+- Google Chrome browser installed (strongly recommended - avoids download issues)
 - A Star Citizen account with store credit
 - Basic computer skills (opening files, running programs)
+
+**Note:** Specter will automatically use your installed Chrome browser if available. If Chrome is not installed, it will download a temporary browser (may require antivirus exclusions on Windows).
 
 ### Installation
 
@@ -99,9 +101,7 @@ Specter is a tool that automatically buys limited-edition ships from the Star Ci
 
 #### Step 2: Configure the Ship URL
 
-1. **Find config.yaml** in the Specter folder
-   - **Important:** The file must be named exactly `config.yaml` (not `config.yaml.example` or anything else)
-   - If you see `config.yaml.example`, rename it to `config.yaml` before proceeding
+1. **Find config.yaml** in the Specter folder (included in the download)
 
 2. **Open it with Notepad (Windows) or TextEdit (Mac)**
 
@@ -395,11 +395,38 @@ A: Always use **UTC time** and end with `Z`. Convert your local time to UTC firs
 
 **"No item URL specified"**
 - You forgot to put the ship URL in config.yaml OR forgot to use --url flag
-- Make sure the config file is named exactly `config.yaml` (not `config.yaml.example`)
+- The config.yaml file is included in the download - make sure you extracted the full ZIP
 
 **"Failed to launch browser"**
-- Make sure Chrome is installed
+- Make sure Chrome is installed (strongly recommended)
 - Try deleting the `.specter` folder in your home directory and login again
+
+**"Chrome is already running" or "ProcessSingleton" / "SingletonLock" error**
+This happens when Chrome is already open and using the same profile:
+
+1. **Close ALL Chrome windows completely**
+   - Windows: Check Task Manager → End all Chrome.exe processes
+   - Mac: Check Activity Monitor → Quit all Chrome processes
+   - Or on Mac Terminal: `killall 'Google Chrome'`
+
+2. **Try running Specter again**
+   - Specter will launch Chrome with its own isolated profile
+   - Your existing Chrome data won't be affected
+
+**"Browser download failed due to file permissions" (Windows)**
+This happens when Specter tries to download a temporary browser but encounters permission issues:
+
+**Best fix: Install Google Chrome**
+- Download from: https://www.google.com/chrome
+- Specter will automatically use your Chrome installation
+- No downloads or permission issues
+
+**Alternative fix: Clear browser cache**
+1. Close ALL Chrome/Chromium processes (check Task Manager)
+2. Press `Win+R`, type: `%APPDATA%\rod` and press Enter
+3. Delete the `browser` folder
+4. Add antivirus exclusion for `%APPDATA%\rod` folder (see antivirus section below)
+5. Try running Specter again
 
 **"Session expired"**
 - Your login expired
@@ -477,10 +504,12 @@ Specter - это инструмент, который автоматически
 ### Требования
 
 **Что вам нужно:**
-- Компьютер (Windows или Mac)
-- Установленный браузер Google Chrome
+- Компьютер (Windows 10/11 или Mac)
+- Установленный браузер Google Chrome (настоятельно рекомендуется - избегает проблем с загрузкой)
 - Аккаунт Star Citizen со store credit
 - Базовые навыки работы с компьютером (открытие файлов, запуск программ)
+
+**Примечание:** Specter автоматически использует ваш установленный Chrome браузер если доступен. Если Chrome не установлен, он загрузит временный браузер (может потребоваться добавление исключений в антивирус на Windows).
 
 ### Установка
 
@@ -551,9 +580,7 @@ Specter - это инструмент, который автоматически
 
 #### Шаг 2: Настройте URL корабля
 
-1. **Найдите config.yaml** в папке Specter
-   - **Важно:** Файл должен называться точно `config.yaml` (не `config.yaml.example` или что-то другое)
-   - Если вы видите `config.yaml.example`, переименуйте его в `config.yaml` перед продолжением
+1. **Найдите config.yaml** в папке Specter (включен в загрузку)
 
 2. **Откройте его Блокнотом (Windows) или TextEdit (Mac)**
 
@@ -847,11 +874,23 @@ continue_after_sale_minutes: 20  # Продолжать попытки X мин�
 
 **"No item URL specified"**
 - Вы забыли вставить URL корабля в config.yaml ИЛИ забыли использовать флаг --url
-- Убедитесь что файл называется точно `config.yaml` (не `config.yaml.example`)
+- Файл config.yaml включен в загрузку - убедитесь что вы извлекли весь ZIP
 
 **"Failed to launch browser"**
-- Убедитесь что Chrome установлен
+- Убедитесь что Chrome установлен (настоятельно рекомендуется)
 - Попробуйте удалить папку `.specter` в вашей домашней директории и войдите снова
+
+**"Chrome is already running" или ошибка "ProcessSingleton" / "SingletonLock"**
+Это происходит когда Chrome уже открыт и использует тот же профиль:
+
+1. **Полностью закройте ВСЕ окна Chrome**
+   - Windows: Проверьте Диспетчер задач → Завершите все процессы Chrome.exe
+   - Mac: Проверьте Мониторинг системы → Завершите все процессы Chrome
+   - Или в Mac Terminal: `killall 'Google Chrome'`
+
+2. **Попробуйте запустить Specter снова**
+   - Specter запустит Chrome со своим изолированным профилем
+   - Ваши существующие данные Chrome не будут затронуты
 
 **"Session expired"**
 - Ваш вход истек
