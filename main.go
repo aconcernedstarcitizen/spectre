@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -24,6 +26,9 @@ func main() {
 	if err := InitLocale(); err != nil {
 		log.Printf("Warning: Locale initialization failed, using default English: %v", err)
 	}
+
+	// Check for user data directory permission issues (after locale is loaded)
+	checkUserDataDirPermissions()
 
 	config, err := LoadConfig(*configPath)
 	if err != nil {
@@ -126,10 +131,32 @@ func main() {
 	}
 }
 
+// Store init error for later display (after locale is loaded)
+var initUserDataDirError error
+
 func init() {
 	userDataDir := getUserDataDir()
 	if err := os.MkdirAll(userDataDir, 0755); err != nil {
-		log.Printf("Warning: Could not create user data directory: %v", err)
+		initUserDataDirError = err
+	}
+}
+
+func checkUserDataDirPermissions() {
+	if initUserDataDirError != nil {
+		userDataDir := getUserDataDir()
+		// Check if this is a macOS permission issue
+		if runtime.GOOS == "darwin" && strings.Contains(initUserDataDirError.Error(), "operation not permitted") {
+			fmt.Println(T("error_macos_permission_header"))
+			fmt.Printf(T("error_macos_permission_location"), userDataDir)
+			fmt.Println(T("error_macos_permission_fix_instructions"))
+			fmt.Println(T("error_macos_permission_step1"))
+			fmt.Println(T("error_macos_permission_step2"))
+			fmt.Println(T("error_macos_permission_step3"))
+			fmt.Println(T("error_macos_permission_step4"))
+			fmt.Println(T("error_macos_permission_alternative"))
+			fmt.Println()
+		}
+		log.Printf(T("error_macos_user_data_dir_warning"), initUserDataDirError)
 	}
 }
 

@@ -147,20 +147,20 @@ func (a *Automation) setupBrowser() error {
 	// IMPORTANT: Must set this before Bin() to ensure it's applied
 	if a.config.BrowserProfilePath != "" {
 		a.launcher = a.launcher.UserDataDir(a.config.BrowserProfilePath)
-		a.debugLog("Browser profile path: %s", a.config.BrowserProfilePath)
+		a.debugLog(T("browser_profile_path_set", a.config.BrowserProfilePath))
 	}
 
 	if chromeExists {
 		a.launcher = a.launcher.Bin(chromePath)
-		fmt.Println("✓ Using system Chrome browser")
-		a.debugLog("Chrome path: %s", chromePath)
+		fmt.Println(T("browser_using_system_chrome"))
+		a.debugLog(T("browser_chrome_path_set", chromePath))
 	} else {
-		fmt.Println("ℹ️  System Chrome not found, will download Chromium")
+		fmt.Println(T("browser_chrome_not_found"))
 		// Will use automatic Chromium download (default behavior)
 	}
 
 	if runtime.GOOS == "windows" {
-		fmt.Println("ℹ️  Running on Windows - leakless mode disabled")
+		fmt.Println(T("windows_leakless_disabled"))
 	}
 
 	url, err := a.launcher.Launch()
@@ -169,35 +169,35 @@ func (a *Automation) setupBrowser() error {
 		if strings.Contains(errMsg, "Opening in existing browser session") ||
 			strings.Contains(errMsg, "ProcessSingleton") ||
 			strings.Contains(errMsg, "SingletonLock") {
-			fmt.Println("\n❌ Chrome is already running with the same profile")
-			fmt.Println("\n📋 To fix this issue:")
-			fmt.Println("   1. Close ALL Chrome/Chromium windows completely")
+			fmt.Println(T("error_chrome_already_running_header"))
+			fmt.Println(T("error_chrome_fix_instructions"))
+			fmt.Println(T("error_chrome_close_all"))
 			if runtime.GOOS == "darwin" {
-				fmt.Println("   2. On Mac: Check Activity Monitor for any Chrome processes")
-				fmt.Println("   3. Or run in Terminal: killall 'Google Chrome'")
+				fmt.Println(T("error_chrome_mac_activity_monitor"))
+				fmt.Println(T("error_chrome_mac_killall"))
 			} else if runtime.GOOS == "windows" {
-				fmt.Println("   2. Check Task Manager for any Chrome processes")
-				fmt.Println("   3. End all Chrome.exe processes")
+				fmt.Println(T("error_chrome_windows_task_manager"))
+				fmt.Println(T("error_chrome_windows_end_processes"))
 			}
-			fmt.Println("   4. Try running Specter again")
-			return fmt.Errorf("browser already running - please close Chrome completely")
+			fmt.Println(T("error_chrome_try_again"))
+			return fmt.Errorf(T("error_chrome_already_running"))
 		}
 
 		// Check for permission/access errors during download
 		if strings.Contains(errMsg, "Access is denied") || strings.Contains(errMsg, "permission denied") {
-			fmt.Println("\n❌ Browser download failed due to file permissions")
-			fmt.Println("\n📋 To fix this issue:")
-			fmt.Println("   1. Close ALL Chrome/Chromium processes (check Task Manager)")
+			fmt.Println(T("error_browser_download_permission"))
+			fmt.Println(T("error_browser_download_fix"))
+			fmt.Println(T("error_browser_download_close_chrome"))
 			if runtime.GOOS == "windows" {
-				fmt.Println("   2. Delete folder: %APPDATA%\\rod\\browser")
-				fmt.Println("   3. Add antivirus exclusion for: %APPDATA%\\rod")
+				fmt.Println(T("error_browser_download_delete_windows"))
+				fmt.Println(T("error_browser_download_exclusion_windows"))
 			} else {
-				fmt.Println("   2. Delete folder: ~/Library/Caches/rod/browser")
+				fmt.Println(T("error_browser_download_delete_mac"))
 			}
-			fmt.Println("   4. Try running again")
-			fmt.Println("\n💡 Alternative: Install Google Chrome and restart the app")
-			fmt.Println("   Download from: https://www.google.com/chrome")
-			return fmt.Errorf("browser setup failed: %w", err)
+			fmt.Println(T("error_browser_download_try_again"))
+			fmt.Println(T("error_browser_download_alternative"))
+			fmt.Println(T("error_browser_download_chrome_url"))
+			return fmt.Errorf(T("error_browser_setup_failed"), err)
 		}
 
 		return fmt.Errorf("failed to launch browser: %w", err)

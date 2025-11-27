@@ -401,6 +401,25 @@ A: Always use **UTC time** and end with `Z`. Convert your local time to UTC firs
 - Make sure Chrome is installed (strongly recommended)
 - Try deleting the `.specter` folder in your home directory and login again
 
+**"macOS Security Warning" or "iTerm has prevented an app from modifying files" (Mac)**
+This is a macOS security feature that prevents terminal apps from creating files in certain locations:
+
+**Best fix: Grant Terminal Full Disk Access**
+1. Open **System Settings** (or System Preferences on older macOS)
+2. Go to **Privacy & Security** → **Full Disk Access**
+3. Click the lock icon and enter your password
+4. Click the **+** button and add your terminal app:
+   - If using iTerm: Select **iTerm.app** from Applications
+   - If using Terminal: Select **Terminal.app** from Applications/Utilities
+5. Enable the checkbox next to your terminal app
+6. **Restart your terminal app** (quit completely and reopen)
+7. Try running Specter again
+
+**Alternative: Use Terminal.app instead of iTerm**
+- The built-in Terminal.app often has necessary permissions by default
+- Open Terminal.app from Applications/Utilities
+- Navigate to Specter folder and run `./specter`
+
 **"Chrome is already running" or "ProcessSingleton" / "SingletonLock" error**
 This happens when Chrome is already open and using the same profile:
 
@@ -879,6 +898,25 @@ continue_after_sale_minutes: 20  # Продолжать попытки X мин�
 **"Failed to launch browser"**
 - Убедитесь что Chrome установлен (настоятельно рекомендуется)
 - Попробуйте удалить папку `.specter` в вашей домашней директории и войдите снова
+
+**"macOS Security Warning" или "iTerm запретил приложению изменять файлы" (Mac)**
+Это функция безопасности macOS которая предотвращает приложения терминала от создания файлов в определенных местах:
+
+**Лучшее решение: Предоставить Terminal полный доступ к диску**
+1. Откройте **Системные настройки** (или System Preferences на старых macOS)
+2. Перейдите в **Конфиденциальность и безопасность** → **Полный доступ к диску**
+3. Нажмите на значок замка и введите пароль
+4. Нажмите кнопку **+** и добавьте приложение терминала:
+   - Если используете iTerm: Выберите **iTerm.app** из Программы
+   - Если используете Terminal: Выберите **Terminal.app** из Программы/Утилиты
+5. Включите чекбокс рядом с приложением терминала
+6. **Перезапустите приложение терминала** (полностью закройте и откройте снова)
+7. Попробуйте запустить Specter снова
+
+**Альтернатива: Используйте Terminal.app вместо iTerm**
+- Встроенный Terminal.app часто имеет необходимые разрешения по умолчанию
+- Откройте Terminal.app из Программы/Утилиты
+- Перейдите в папку Specter и запустите `./specter`
 
 **"Chrome is already running" или ошибка "ProcessSingleton" / "SingletonLock"**
 Это происходит когда Chrome уже открыт и использует тот же профиль:
