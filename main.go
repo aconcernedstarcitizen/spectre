@@ -61,36 +61,34 @@ func main() {
 		log.Fatal("No item URL specified. Use -url flag or set it in config.yaml")
 	}
 
-	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
-	fmt.Println("║              RSI Store Checkout Assistant                ║")
-	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+	fmt.Println(T("app_header"))
 	fmt.Println()
 	if config.ItemURL != "" {
-		fmt.Printf("Target URL: %s\n", config.ItemURL)
+		fmt.Printf(T("target_url")+"\n", config.ItemURL)
 	}
-	fmt.Printf("Browser Profile: %s\n", config.BrowserProfilePath)
+	fmt.Printf(T("browser_profile")+"\n", config.BrowserProfilePath)
 
 	if config.DryRun {
 		fmt.Println(T("dry_run_mode"))
 	}
 	if config.DebugMode {
-		fmt.Println("🔍 DEBUG MODE - Detailed logging enabled")
+		fmt.Println(T("debug_mode"))
 	}
 	if config.SkipAddToCart {
-		fmt.Println("⏭️  SKIP CART MODE - Item already in cart, skipping add step")
+		fmt.Println(T("skip_cart_mode"))
 	}
 
 	if config.EnableSaleTiming && config.SaleStartTime != "" {
-		fmt.Println("⏰ TIMED SALE MODE - Will retry aggressively around sale time")
-		fmt.Printf("   Sale Time: %s\n", config.SaleStartTime)
-		fmt.Printf("   Start: %d min before | Continue: %d min after\n",
+		fmt.Println(T("timed_sale_mode"))
+		fmt.Printf(T("timed_sale_time")+"\n", config.SaleStartTime)
+		fmt.Printf(T("timed_sale_window")+"\n",
 			config.StartBeforeSaleMinutes, config.ContinueAfterSaleMinutes)
 	}
 
-	fmt.Println("⚡ FAST API MODE - Hybrid authentication + API checkout")
+	fmt.Println(T("fast_api_mode"))
 	fmt.Println()
 
-	fmt.Println("🌐 Step 1: Setting up browser for authentication...")
+	fmt.Println(T("step1_browser_setup"))
 	automation := NewAutomation(config)
 	defer automation.Close()
 
@@ -102,13 +100,13 @@ func main() {
 		log.Fatalf("Failed to wait for login: %v", err)
 	}
 
-	fmt.Println("\n⚡ Step 2: Initializing fast API checkout...")
+	fmt.Println(T("step2_init_fast_checkout"))
 	fastCheckout, err := NewFastCheckout(config)
 	if err != nil {
 		log.Fatalf("Failed to initialize fast checkout: %v", err)
 	}
 
-	fmt.Println("\n🚀 Step 3: Running lightning-fast API checkout...")
+	fmt.Println(T("step3_running_checkout"))
 
 	// Use timed sale mode if enabled and sale time is configured
 	if config.EnableSaleTiming && config.SaleStartTime != "" {
@@ -122,11 +120,11 @@ func main() {
 	}
 
 	fmt.Println()
-	fmt.Println("✓ Checkout process completed successfully!")
+	fmt.Println(T("checkout_completed"))
 	fmt.Println()
 
 	if config.KeepBrowserOpen {
-		fmt.Println("Keeping browser open for 30 seconds...")
+		fmt.Println(T("keeping_browser_open"))
 		time.Sleep(30 * time.Second)
 	}
 }

@@ -2,7 +2,21 @@
 
 # General
 app_starting: "🚀 Starting Specter - Star Citizen Automated Checkout"
+app_header: "╔═══════════════════════════════════════════════════════════╗\n║              RSI Store Checkout Assistant                ║\n╚═══════════════════════════════════════════════════════════╝"
+target_url: "Target URL: %s"
+browser_profile: "Browser Profile: %s"
 dry_run_mode: "🧪 DRY RUN MODE - No actual purchase will be made"
+debug_mode: "🔍 DEBUG MODE - Detailed logging enabled"
+skip_cart_mode: "⏭️  SKIP CART MODE - Item already in cart, skipping add step"
+timed_sale_mode: "⏰ TIMED SALE MODE - Will retry aggressively around sale time"
+timed_sale_time: "   Sale Time: %s"
+timed_sale_window: "   Start: %d min before | Continue: %d min after"
+fast_api_mode: "⚡ FAST API MODE - Hybrid authentication + API checkout"
+step1_browser_setup: "🌐 Step 1: Setting up browser for authentication..."
+step2_init_fast_checkout: "\n⚡ Step 2: Initializing fast API checkout..."
+step3_running_checkout: "\n🚀 Step 3: Running lightning-fast API checkout..."
+checkout_completed: "✓ Checkout process completed successfully!"
+keeping_browser_open: "Keeping browser open for 30 seconds..."
 cleaning_up: "\n🔒 Cleaning up browser session..."
 browser_destroyed: "✓ Browser session destroyed"
 operation_complete: "\n✨ Operation complete!"
@@ -25,8 +39,8 @@ windows_leakless_disabled: "ℹ️  Running on Windows - leakless mode disabled"
 
 # Login
 login_required_header: "╔═══════════════════════════════════════════════════════════╗\n║                      LOGIN REQUIRED                       ║\n╚═══════════════════════════════════════════════════════════╝"
-login_instructions: "📋 Instructions:\n   1. Log in to your RSI account in the browser window\n   2. WAIT until the ship is AVAILABLE on the RSI store\n   3. When ready, press ENTER to start the automated checkout\n\n   ⚠️  Press ESC to exit if you need to cancel"
-login_prompt: "⏳ Press ENTER when logged in and ship is available (or ESC to exit): "
+login_instructions: "📋 Instructions:\n   1. Log in to your RSI account in the browser window\n   2. When ready, press ENTER to start the automated checkout\n      (The app will retry until the item becomes available)\n\n   ⚠️  Press ESC to exit if you need to cancel"
+login_prompt: "⏳ Press ENTER when logged in and ready (or ESC to exit): "
 user_confirmed_ready: "✓ User confirmed ready to proceed"
 user_requested_exit: "⚠️  User requested exit"
 

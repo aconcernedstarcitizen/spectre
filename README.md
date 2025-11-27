@@ -156,14 +156,19 @@ cd /Users/YourName/Specter
 
 **What happens:**
 1. Chrome opens - log in if needed
-2. **Wait for the ship to be available on the RSI website**
-3. **Press ENTER** when you're ready to start
-4. Program tries to add to cart with ultra-fast retries (5-20ms between attempts)
-5. Once successful, completes checkout in under 1 second
-6. Done! Your order is placed
+2. **Press ENTER** when you're ready to start
+   (The app will retry until the item becomes available)
+3. Program tries to add to cart with ultra-fast retries (5-20ms between attempts)
+4. Once successful, completes checkout in under 1 second
+5. Done! Your order is placed
 
 **What You'll See:**
 ```
+╔═══════════════════════════════════════════════════════════╗
+║           FAST CHECKOUT - API MODE                        ║
+║           (Browser-Free Lightning Speed)                  ║
+╚═══════════════════════════════════════════════════════════╝
+
 🔍 Checking current cart state...
 ✓ Cart is empty, will add item
 🛒 Adding to cart (API) with retry mechanism...
@@ -172,15 +177,23 @@ cd /Users/YourName/Specter
 🔄 Attempt 50 - Time remaining: 4m58s
 ✅ Successfully added to cart after 87 attempts in 2.3s!
 
-🔍 Validating cart after adding item...
-✓ Cart contains only target item: Aurora ES - 10 Year ($20.00)
+✓ Item added successfully (validation skipped for speed)
 💰 Applying $20.00 store credit (API)...
-✓ Store credit applied successfully
+✓ Store credit applied: [success response]
 
 ➡️  Moving to billing/addresses step...
+📋 Fetching billing address...
+✓ Found billing address: John Doe, Los Angeles (ID: abc123)
+📍 Assigning billing address (ID: abc123)...
+✓ Billing address assigned: [success response]
+
+🎯 Completing order (validating cart)...
+✓ Order validated! Order slug: order-12345
+✓ Order has been created!
 ✓ ORDER COMPLETED!
 
 ⚡ Total checkout time: 847ms
+🎯 Target: <1 second | Actual: 847ms
 🏆 ACHIEVED SUB-SECOND CHECKOUT!
 ```
 
@@ -247,6 +260,17 @@ specter.exe --url "..." --sale-time "2025-01-15T23:00:00Z" --start-before 15 --c
 🚀 Will start retrying at: Wed, 15 Jan 2025 22:50:00 UTC (10 min before)
 ⏱️  Will stop retrying at: Wed, 15 Jan 2025 23:20:00 UTC (20 min after)
 
+🔧 Running pre-flight checks...
+🔐 Extracting session from browser...
+✓ Extracted 12 cookies from browser
+✓ Extracted CSRF token: abc123...
+🔍 Extracting SKU from current page...
+✓ Extracted SKU slug from page: anvil-carrack
+✓ Found SKU ID: 12345
+✅ All pre-flight checks passed!
+
+💡 Tip: Everything is ready! You can take a break until the sale starts.
+
 ⏳ Waiting 8m 45s until retry window starts...
 ✓ Retry window started!
 
@@ -261,8 +285,14 @@ specter.exe --url "..." --sale-time "2025-01-15T23:00:00Z" --start-before 15 --c
 ═══════════════════════════════════════════════════════════
            PHASE 2: CHECKOUT (AGGRESSIVE RETRY)
 ═══════════════════════════════════════════════════════════
-➡️  Moving to billing step...
-💰 Applying store credit...
+➡️  Moving to billing/addresses step...
+💰 Applying $350.00 store credit (API)...
+✓ Store credit applied: [success response]
+✅ Validating and completing order...
+🔄 Validation Attempt 1 - Time remaining in sale window: 29m54s
+✓ Order validated! Order slug: order-12345
+✓ Order has been created!
+🎉 Success after 1 attempt(s) in 523ms
 ✓ ORDER COMPLETED!
 
 ⚡ Total time from first attempt to completion: 5.2s
@@ -654,14 +684,19 @@ cd /Users/ВашеИмя/Specter
 
 **Что происходит:**
 1. Открывается Chrome - войдите если нужно
-2. **Дождитесь когда корабль станет доступен на сайте RSI**
-3. **Нажмите ENTER** когда готовы начать
-4. Программа пытается добавить в корзину со сверхбыстрыми повторами (5-20мс между попытками)
-5. После успеха завершает оформление менее чем за 1 секунду
-6. Готово! Ваш заказ размещен
+2. **Нажмите ENTER** когда готовы начать
+   (Приложение будет повторять попытки пока товар не станет доступен)
+3. Программа пытается добавить в корзину со сверхбыстрыми повторами (5-20мс между попытками)
+4. После успеха завершает оформление менее чем за 1 секунду
+5. Готово! Ваш заказ размещен
 
 **Что вы увидите (на русском языке, если система настроена на русский):**
 ```
+╔═══════════════════════════════════════════════════════════╗
+║           FAST CHECKOUT - API MODE                        ║
+║           (Browser-Free Lightning Speed)                  ║
+╚═══════════════════════════════════════════════════════════╝
+
 🔍 Проверка текущего состояния корзины...
 ✓ Корзина пуста, будет добавлен товар
 🛒 Добавление в корзину (API) с механизмом повторов...
@@ -670,15 +705,23 @@ cd /Users/ВашеИмя/Specter
 🔄 Попытка 50 - Осталось времени: 4m58s
 ✅ Успешно добавлено в корзину после 87 попыток за 2.3s!
 
-🔍 Проверка корзины после добавления товара...
-✓ Корзина содержит только целевой товар: Aurora ES - 10 Year ($20.00)
+✓ Товар успешно добавлен (проверка пропущена для скорости)
 💰 Применение $20.00 store credit (API)...
-✓ Store credit успешно применен
+✓ Store credit применён: [успешный ответ]
 
 ➡️  Переход к шагу оплаты/адресов...
+📋 Получение платёжного адреса...
+✓ Найден платёжный адрес: Иван Иванов, Москва (ID: abc123)
+📍 Назначение платёжного адреса (ID: abc123)...
+✓ Платёжный адрес назначен: [успешный ответ]
+
+🎯 Завершение заказа (проверка корзины)...
+✓ Заказ подтверждён! Номер заказа: order-12345
+✓ Заказ создан!
 ✓ ЗАКАЗ ЗАВЕРШЕН!
 
 ⚡ Общее время оформления: 847ms
+🎯 Цель: <1 секунда | Факт: 847ms
 🏆 ДОСТИГНУТО ОФОРМЛЕНИЕ МЕНЕЕ СЕКУНДЫ!
 ```
 

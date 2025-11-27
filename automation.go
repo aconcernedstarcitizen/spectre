@@ -39,7 +39,7 @@ func (a *Automation) Close() {
 	default:
 	}
 
-	fmt.Println("\n🔒 Cleaning up browser session...")
+	fmt.Println(T("cleaning_up"))
 
 	if a.page != nil {
 		a.page.Close()
@@ -53,7 +53,7 @@ func (a *Automation) Close() {
 		a.launcher.Cleanup()
 	}
 
-	fmt.Println("✓ Browser session destroyed")
+	fmt.Println(T("browser_destroyed"))
 }
 
 func (a *Automation) isBrowserAlive() bool {
@@ -80,8 +80,8 @@ func (a *Automation) isBrowserAlive() bool {
 
 func (a *Automation) checkBrowserOrExit() {
 	if !a.isBrowserAlive() {
-		fmt.Println("\n⚠️  Browser window was closed by user")
-		fmt.Println("🛑 Shutting down gracefully...")
+		fmt.Println(T("browser_closed_by_user"))
+		fmt.Println(T("shutting_down"))
 		os.Exit(0)
 	}
 }
@@ -106,7 +106,7 @@ func (a *Automation) randomDelay() {
 	duration := min + a.rand.Float64()*(max-min)
 
 	if !a.config.DebugMode {
-		fmt.Printf("⏱  Waiting %.2f seconds...\n", duration)
+		fmt.Printf(T("waiting_seconds")+"\n", duration)
 	}
 	time.Sleep(time.Duration(duration * float64(time.Second)))
 }
@@ -129,7 +129,7 @@ func (a *Automation) debugLog(format string, args ...interface{}) {
 }
 
 func (a *Automation) setupBrowser() error {
-	fmt.Println("🚀 Launching browser...")
+	fmt.Println(T("browser_launching"))
 
 	// Disable leakless mode on Windows to prevent deadlock
 	// See: https://github.com/go-rod/rod/issues/853
@@ -207,19 +207,19 @@ func (a *Automation) setupBrowser() error {
 
 
 	go a.watchBrowser()
-	a.debugLog("Browser watcher started")
+	a.debugLog(T("browser_watcher_started"))
 
-	fmt.Println("✓ Browser launched successfully")
+	fmt.Println(T("browser_launched"))
 	return nil
 }
 
 func (a *Automation) waitForLogin() error {
-	fmt.Println("🔐 Opening browser for login...")
+	fmt.Println(T("opening_for_login"))
 
 	targetURL := "https://robertsspaceindustries.com"
 	if a.config.ItemURL != "" {
 		targetURL = a.config.ItemURL
-		fmt.Printf("📄 Navigating to product page: %s\n", targetURL)
+		fmt.Printf(T("loading_product_page")+"\n", targetURL)
 	}
 
 	var err error
@@ -283,24 +283,17 @@ func (a *Automation) waitForLogin() error {
 			return fmt.Errorf("page does not appear to be a valid product page (no SKU data found). URL: %s", a.config.ItemURL)
 		}
 
-		fmt.Println("✓ Product page loaded successfully")
+		fmt.Println(T("product_page_loaded"))
 	}
 
-	fmt.Println("✓ Browser configured with desktop viewport")
+	fmt.Println(T("browser_configured"))
 
 	fmt.Println()
-	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
-	fmt.Println("║                      LOGIN REQUIRED                       ║")
-	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+	fmt.Println(T("login_required_header"))
 	fmt.Println()
-	fmt.Println("📋 Instructions:")
-	fmt.Println("   1. Log in to your RSI account in the browser window")
-	fmt.Println("   2. WAIT until the ship is AVAILABLE on the RSI store")
-	fmt.Println("   3. When ready, press ENTER to start the automated checkout")
+	fmt.Println(T("login_instructions"))
 	fmt.Println()
-	fmt.Println("   ⚠️  Press ESC to exit if you need to cancel")
-	fmt.Println()
-	fmt.Print("⏳ Press ENTER when logged in and ship is available (or ESC to exit): ")
+	fmt.Print(T("login_prompt"))
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -311,22 +304,22 @@ func (a *Automation) waitForLogin() error {
 
 		if input == '\n' || input == '\r' {
 			fmt.Println()
-			fmt.Println("✓ User confirmed ready to proceed")
+			fmt.Println(T("user_confirmed_ready"))
 			break
 		}
 
 		if input == 27 {
 			fmt.Println()
-			fmt.Println("⚠️  User requested exit")
+			fmt.Println(T("user_requested_exit"))
 			return fmt.Errorf("user canceled operation")
 		}
 	}
 
 	if a.config.RecaptchaSiteKey != "" {
-		fmt.Println("🔐 Pre-loading reCAPTCHA Enterprise...")
+		fmt.Println(T("recaptcha_preloading"))
 		a.preloadRecaptcha()
 
-		fmt.Println("🎭 Building interaction history for reCAPTCHA scoring...")
+		fmt.Println(T("building_interaction_history"))
 		a.buildInteractionHistory()
 	}
 
@@ -393,15 +386,15 @@ func (a *Automation) buildInteractionHistory() {
 		time.Sleep(time.Duration(30+a.rand.Intn(50)) * time.Millisecond) // Reduced from 300-800ms to 30-80ms
 	}
 
-	a.debugLog("Built ~200ms of interaction history (optimized for speed)")
-	fmt.Println("✓ Interaction history established (fast mode)")
+	a.debugLog(T("interaction_history_built"))
+	fmt.Println(T("interaction_history_complete"))
 }
 
 func (a *Automation) preloadRecaptcha() {
 	checkExisting, err := a.page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
 	if err == nil && checkExisting.Value.Bool() {
-		fmt.Println("✓ reCAPTCHA Enterprise already loaded")
-		a.debugLog("reCAPTCHA already present on page")
+		fmt.Println(T("recaptcha_already_loaded"))
+		a.debugLog(T("debug_recaptcha_present"))
 
 		actualKey, err := a.page.Eval(`() => {
 			const scripts = document.querySelectorAll('script[src*="recaptcha"]');
@@ -413,12 +406,9 @@ func (a *Automation) preloadRecaptcha() {
 		}`)
 		if err == nil && actualKey != nil && actualKey.Value.Str() != "" {
 			detectedKey := actualKey.Value.Str()
-			a.debugLog("Detected reCAPTCHA site key from page: %s", detectedKey)
+			a.debugLog(T("recaptcha_detected_key"), detectedKey)
 			if detectedKey != a.config.RecaptchaSiteKey {
-				fmt.Printf("⚠️  WARNING: Config key differs from page key!\n")
-				fmt.Printf("   Config:   %s\n", a.config.RecaptchaSiteKey)
-				fmt.Printf("   Detected: %s\n", detectedKey)
-				fmt.Printf("   Update your config.yaml to use the detected key\n")
+				fmt.Printf(T("recaptcha_key_warning")+"\n", a.config.RecaptchaSiteKey, detectedKey)
 			}
 		}
 
@@ -437,12 +427,12 @@ func (a *Automation) preloadRecaptcha() {
 
 	_, err = a.page.Eval(injectScript)
 	if err != nil {
-		a.debugLog("Warning: Failed to inject reCAPTCHA script: %v", err)
-		fmt.Println("⚠️  reCAPTCHA injection failed (will retry during checkout)")
+		a.debugLog(T("warning_recaptcha_script_inject"), err)
+		fmt.Println(T("recaptcha_injection_failed"))
 		return
 	}
 
-	a.debugLog("reCAPTCHA script injected, waiting for load...")
+	a.debugLog(T("debug_recaptcha_waiting"))
 
 	// OPTIMIZED: Reduced wait time and check intervals for speed
 	maxWait := 20 // 20 checks of 100ms = 2 seconds max instead of 5 seconds
@@ -451,14 +441,14 @@ func (a *Automation) preloadRecaptcha() {
 
 		readyCheck, err := a.page.Eval(`() => typeof grecaptcha !== 'undefined' && typeof grecaptcha.enterprise !== 'undefined'`)
 		if err == nil && readyCheck.Value.Bool() {
-			fmt.Println("✓ reCAPTCHA Enterprise ready")
-			a.debugLog("reCAPTCHA loaded successfully after %dms", (i+1)*100)
+			fmt.Println(T("recaptcha_ready"))
+			a.debugLog(T("recaptcha_loaded_after"), (i+1)*100)
 			return
 		}
 	}
 
-	fmt.Println("⚠️  reCAPTCHA did not load in time (will retry during checkout)")
-	a.debugLog("reCAPTCHA load timeout after 2 seconds")
+	fmt.Println(T("recaptcha_timeout"))
+	a.debugLog(T("recaptcha_timeout_after"))
 }
 
 
