@@ -26,21 +26,9 @@ keep_browser_open: true   # Keep browser open after completion (useful for verif
 retry_delay_min_ms: 29
 retry_delay_max_ms: 107
 
-# Sale timing window configuration
-# These settings define how long before and after the sale time to keep trying
-# This accounts for sales starting early or drops happening after the scheduled time
-
-# How many seconds BEFORE the sale starts to begin attempting purchases
-# Default: 600 seconds (10 minutes)
-# The script will start trying 10 minutes early to catch early releases
-start_before_sale_seconds: 600
-
-# How many seconds AFTER the sale time to continue attempting
-# Default: 900 seconds (15 minutes)
-# The script will continue for 15 minutes after sale time to catch late drops
-continue_after_sale_seconds: 900
-
-# Total sale window = start_before + continue_after (default: 25 minutes total)
+# ============================================================================
+# reCAPTCHA CONFIGURATION
+# ============================================================================
 
 # reCAPTCHA v3 Enterprise Configuration
 # Required for limited edition ship sales to bypass bot detection
@@ -73,7 +61,13 @@ recaptcha_action: "store/cart/add"
 #   - "2025-01-16 04:00"  # Wave 4: 4:00 AM UTC (next day)
 #   - "2025-01-16 08:00"  # Wave 5: 8:00 AM UTC (next day)
 #   - "2025-01-16 12:00"  # Wave 6: 12:00 PM UTC (next day)
-sale_windows: []
+sale_windows:
+   - "2025-01-15 16:00"  # Wave 1: 4:00 PM UTC
+   - "2025-01-15 20:00"  # Wave 2: 8:00 PM UTC
+   - "2025-01-16 00:00"  # Wave 3: 12:00 AM UTC (next day)
+   - "2025-01-16 04:00"  # Wave 4: 4:00 AM UTC (next day)
+   - "2025-01-16 08:00"  # Wave 5: 8:00 AM UTC (next day)
+   - "2025-01-16 12:00"  # Wave 6: 12:00 PM UTC (next day)
 
 # Minutes before wave to start polling for product page availability
 # The app will check if the product page returns 200 (not 404)
