@@ -21,47 +21,27 @@ func NewTimeSync(debugMode bool) *TimeSync {
 	}
 }
 
-// Sync synchronizes time with multiple reliable time servers
+// Sync synchronizes time with Amazon's time server
+// CIG hosts their infrastructure on AWS, so we use Amazon for accurate timing
 // It makes HTTP HEAD requests and parses the Date header
 func (ts *TimeSync) Sync() error {
-	// Try multiple time servers for reliability
-	servers := []string{
-		"https://www.google.com",
-		"https://www.cloudflare.com",
-		"https://www.amazon.com",
-	}
+	// Use Amazon time server since CIG infrastructure is hosted on AWS
+	server := "https://www.amazon.com"
 
-	var totalOffset time.Duration
-	successCount := 0
-
-	for _, server := range servers {
-		offset, err := ts.getTimeOffset(server)
-		if err != nil {
-			if ts.debugMode {
-				fmt.Printf("⚠️  Time sync failed for %s: %v\n", server, err)
-			}
-			continue
-		}
-
-		totalOffset += offset
-		successCount++
-
+	offset, err := ts.getTimeOffset(server)
+	if err != nil {
 		if ts.debugMode {
-			fmt.Printf("✓ Time offset from %s: %v\n", server, offset)
+			fmt.Printf("⚠️  Time sync failed for %s: %v\n", server, err)
 		}
+		return fmt.Errorf("failed to sync time with Amazon server: %w", err)
 	}
 
-	if successCount == 0 {
-		return fmt.Errorf("failed to sync time with any server")
-	}
-
-	// Calculate average offset
-	ts.offset = totalOffset / time.Duration(successCount)
+	ts.offset = offset
 	ts.lastSyncTime = time.Now()
 	ts.synced = true
 
 	if ts.debugMode {
-		fmt.Printf("✓ Time synchronized (average offset: %v)\n", ts.offset)
+		fmt.Printf("✓ Time synchronized with Amazon (offset: %v)\n", ts.offset)
 	}
 
 	return nil

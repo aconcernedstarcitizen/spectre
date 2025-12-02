@@ -236,10 +236,10 @@ cd /Users/YourName/Specter
 
 1. **Time Synchronization** (first few seconds)
    ```
-   🔄 Synchronizing time with reliable time servers...
+   🔄 Synchronizing time with Amazon time server...
    ✓ Time synchronized (system clock is 234ms behind network time)
    ```
-   - Syncs with Google, Cloudflare, and Amazon time servers
+   - Syncs with Amazon's time server (since CIG hosts infrastructure on AWS)
    - Calculates precise time offset for accurate wave timing
 
 2. **Wave Schedule Display & Smart Wave Selection**
@@ -454,7 +454,7 @@ specter.exe --debug
 
 For those interested in the technical implementation:
 
-1. **Time Synchronization**: App uses HTTP HEAD requests to multiple time servers (Google, Cloudflare, Amazon) to calculate precise time offset
+1. **Time Synchronization**: App uses HTTP HEAD requests to Amazon's time server to calculate precise time offset (CIG infrastructure runs on AWS for accurate timing)
 2. **Smart Wave Detection**: On startup, compares current time against all wave end times (wave_time + post_wave_timeout) to determine which wave to start from
 3. **Past Wave Skipping**: Automatically skips waves that have already ended, displays list of skipped waves to user
 4. **Pre-Wave Polling**: Starting 2 minutes before each wave, sends HTTP HEAD requests every second checking for 200 status (product available)
@@ -698,10 +698,10 @@ cd /Users/ВашеИмя/Specter
 
 1. **Синхронизация времени** (первые несколько секунд)
    ```
-   🔄 Синхронизация времени с надежными серверами времени...
+   🔄 Синхронизация времени с сервером времени Amazon...
    ✓ Время синхронизировано (системные часы на 234мс отстают от сетевого времени)
    ```
-   - Синхронизация с серверами времени Google, Cloudflare и Amazon
+   - Синхронизация с сервером времени Amazon (так как инфраструктура CIG размещена на AWS)
    - Вычисляет точное смещение времени для точного таймирования волн
 
 2. **Отображение расписания волн и умный выбор волны**
@@ -916,7 +916,7 @@ specter.exe --debug
 
 Для тех, кто интересуется технической реализацией:
 
-1. **Синхронизация времени**: Приложение использует HTTP HEAD запросы к нескольким серверам времени (Google, Cloudflare, Amazon) для расчета точного смещения времени
+1. **Синхронизация времени**: Приложение использует HTTP HEAD запросы к серверу времени Amazon для расчета точного смещения времени (инфраструктура CIG работает на AWS для точного таймирования)
 2. **Умное определение волны**: При запуске сравнивает текущее время со временем окончания всех волн (время_волны + таймаут_после_волны), чтобы определить, с какой волны начать
 3. **Пропуск прошедших волн**: Автоматически пропускает волны, которые уже закончились, отображает список пропущенных волн пользователю
 4. **Опрос перед волной**: Начиная за 2 минуты до каждой волны, отправляет HTTP HEAD запросы каждую секунду, проверяя статус 200 (продукт доступен)

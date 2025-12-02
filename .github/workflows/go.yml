@@ -104,7 +104,7 @@ jobs:
           **Key Features:**
           - ⚡ **Ultra-fast API-based checkout** - Completes purchase in under 1 second once item is in cart
           - 🌊 **Smart Multi-Wave Mode** - Start at ANY time, app automatically skips past waves and finds the next relevant one
-          - 🕐 **Precise Time Synchronization** - Syncs with Google, Cloudflare, and Amazon time servers for accurate wave timing
+          - 🕐 **Precise Time Synchronization** - Syncs with Amazon's time server for accurate wave timing (CIG infrastructure runs on AWS)
           - 📅 **User-Friendly Time Format** - Just paste times like "2025-01-15 16:00 UTC" from CIG announcements
           - 🎯 **Smart Wave Detection** - Automatically determines which wave to process based on current time
           - 💤 **Dormant State Management** - Stays dormant between waves, no need to restart the app
