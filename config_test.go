@@ -33,20 +33,16 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected RetryDelayMaxMs to be 20, got %d", config.RetryDelayMaxMs)
 	}
 
-	if config.StartBeforeSaleMinutes != 10 {
-		t.Errorf("Expected StartBeforeSaleMinutes to be 10, got %d", config.StartBeforeSaleMinutes)
+	if config.PreWaveActivationMinutes != 2 {
+		t.Errorf("Expected PreWaveActivationMinutes to be 2, got %d", config.PreWaveActivationMinutes)
 	}
 
-	if config.ContinueAfterSaleMinutes != 20 {
-		t.Errorf("Expected ContinueAfterSaleMinutes to be 20, got %d", config.ContinueAfterSaleMinutes)
+	if config.PostWaveTimeoutMinutes != 5 {
+		t.Errorf("Expected PostWaveTimeoutMinutes to be 5, got %d", config.PostWaveTimeoutMinutes)
 	}
 
-	if config.EnableSaleTiming != false {
-		t.Error("Expected EnableSaleTiming to be false by default")
-	}
-
-	if config.SaleStartTime != "" {
-		t.Errorf("Expected SaleStartTime to be empty by default, got '%s'", config.SaleStartTime)
+	if len(config.SaleWindows) != 0 {
+		t.Errorf("Expected SaleWindows to be empty by default, got %d items", len(config.SaleWindows))
 	}
 
 	if config.RecaptchaSiteKey == "" {

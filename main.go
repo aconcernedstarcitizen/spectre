@@ -17,9 +17,8 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Test mode: stop before final purchase")
 	debug := flag.Bool("debug", false, "Enable detailed debug logging")
 	skipCart := flag.Bool("skip-cart", false, "Skip adding to cart (item already in cart)")
-	saleTime := flag.String("sale-time", "", "Sale start time in RFC3339 format (e.g., 2025-01-15T18:00:00Z) - enables timed sale mode")
-	startBefore := flag.Int("start-before", 10, "Minutes to start retrying before sale (default: 10)")
-	continueAfter := flag.Int("continue-after", 20, "Minutes to continue retrying after sale (default: 20)")
+	preWaveMinutes := flag.Int("pre-wave", 2, "Minutes before wave to start polling (default: 2)")
+	postWaveMinutes := flag.Int("post-wave", 5, "Minutes after wave to timeout (default: 5)")
 	flag.Parse()
 
 	// Initialize localization
@@ -49,12 +48,13 @@ func main() {
 		config.SkipAddToCart = true
 	}
 
-	// Timed sale mode configuration
-	if *saleTime != "" {
-		config.EnableSaleTiming = true
-		config.SaleStartTime = *saleTime
-		config.StartBeforeSaleMinutes = *startBefore
-		config.ContinueAfterSaleMinutes = *continueAfter
+	// Configure wave timing parameters
+	config.PreWaveActivationMinutes = *preWaveMinutes
+	config.PostWaveTimeoutMinutes = *postWaveMinutes
+
+	// Validate that sale windows are configured
+	if len(config.SaleWindows) == 0 {
+		log.Fatal("No sale windows configured. Please configure sale_windows in config.yaml (format: YYYY-MM-DD HH:MM in UTC)")
 	}
 
 	if config.ItemURL == "" && !config.SkipAddToCart {
@@ -78,11 +78,15 @@ func main() {
 		fmt.Println(T("skip_cart_mode"))
 	}
 
-	if config.EnableSaleTiming && config.SaleStartTime != "" {
-		fmt.Println(T("timed_sale_mode"))
-		fmt.Printf(T("timed_sale_time")+"\n", config.SaleStartTime)
-		fmt.Printf(T("timed_sale_window")+"\n",
-			config.StartBeforeSaleMinutes, config.ContinueAfterSaleMinutes)
+	fmt.Println(T("multiwave_mode_enabled"))
+	fmt.Printf(T("multiwave_num_waves")+"\n", len(config.SaleWindows))
+	fmt.Printf(T("multiwave_prewave_minutes")+"\n", config.PreWaveActivationMinutes)
+	fmt.Printf(T("multiwave_postwave_minutes")+"\n", config.PostWaveTimeoutMinutes)
+	fmt.Println()
+	fmt.Println(T("multiwave_wave_list"))
+	for i, waveTime := range config.SaleWindows {
+		t, _ := time.Parse(time.RFC3339, waveTime)
+		fmt.Printf("  Wave %d: %s (%s)\n", i+1, waveTime, t.Local().Format("15:04:05 MST"))
 	}
 
 	fmt.Println(T("fast_api_mode"))
@@ -108,15 +112,10 @@ func main() {
 
 	fmt.Println(T("step3_running_checkout"))
 
-	// Use timed sale mode if enabled and sale time is configured
-	if config.EnableSaleTiming && config.SaleStartTime != "" {
-		if err := fastCheckout.RunTimedSaleCheckout(automation); err != nil {
-			log.Fatalf("Timed sale checkout failed: %v", err)
-		}
-	} else {
-		if err := fastCheckout.RunFastCheckout(automation); err != nil {
-			log.Fatalf("Fast checkout failed: %v", err)
-		}
+	// Run multi-wave automated checkout
+	orchestrator := NewMultiWaveOrchestrator(config, automation, fastCheckout)
+	if err := orchestrator.Run(); err != nil {
+		log.Fatalf("Multi-wave checkout failed: %v", err)
 	}
 
 	fmt.Println()

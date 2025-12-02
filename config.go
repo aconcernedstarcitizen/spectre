@@ -33,11 +33,10 @@ type Config struct {
 	OutOfStockDelayMs   int `yaml:"out_of_stock_delay_ms"`  // Out of stock delay
 	GenericErrorDelayMs int `yaml:"generic_error_delay_ms"` // Generic error delay
 
-	// Sale timing configuration
-	StartBeforeSaleMinutes   int `yaml:"start_before_sale_minutes"`   // Start retrying X minutes before sale
-	ContinueAfterSaleMinutes int `yaml:"continue_after_sale_minutes"` // Continue retrying X minutes after sale
-	SaleStartTime            string `yaml:"sale_start_time"`           // Sale start time (RFC3339 format, e.g., "2025-01-15T18:00:00Z")
-	EnableSaleTiming         bool   `yaml:"enable_sale_timing"`        // Enable sale timing mode
+	// Sale wave configuration
+	SaleWindows              []string `yaml:"sale_windows"`                // Sale times in RFC3339 format (e.g., ["2025-01-15T16:00:00Z", "2025-01-15T20:00:00Z"])
+	PreWaveActivationMinutes int      `yaml:"pre_wave_activation_minutes"` // Minutes before wave to start polling for product page (default: 2)
+	PostWaveTimeoutMinutes   int      `yaml:"post_wave_timeout_minutes"`   // Minutes after wave to keep trying before moving to next wave (default: 5)
 
 	RecaptchaSiteKey string `yaml:"recaptcha_site_key"`
 	RecaptchaAction  string `yaml:"recaptcha_action"`
@@ -82,14 +81,13 @@ func DefaultConfig() *Config {
 		Payment4227MaxMs:    2100,
 		Payment4226MinMs:    500,   // Payment auth 4226: 500-700ms
 		Payment4226MaxMs:    700,
-		RateLimitMinMs:      50,    // Rate limit: 50-150ms
-		RateLimitMaxMs:      150,
-		OutOfStockDelayMs:   100,   // Out of stock: 100ms
-		GenericErrorDelayMs: 100,   // Generic errors: 100ms
-		StartBeforeSaleMinutes:   10,   // Start 10 minutes before sale
-		ContinueAfterSaleMinutes: 20,   // Continue 20 minutes after sale
-		SaleStartTime:            "",   // Set to RFC3339 format for timed sales
-		EnableSaleTiming:         false, // Disabled by default
+		RateLimitMinMs:           50,         // Rate limit: 50-150ms
+		RateLimitMaxMs:           150,
+		OutOfStockDelayMs:        100,        // Out of stock: 100ms
+		GenericErrorDelayMs:      100,        // Generic errors: 100ms
+		SaleWindows:              []string{}, // Sale windows (required: use --waves-date YYYY-MM-DD or configure in config.yaml)
+		PreWaveActivationMinutes: 2,          // Start polling 2 minutes before wave
+		PostWaveTimeoutMinutes:   5,          // Continue 5 minutes after wave before moving to next
 		RecaptchaSiteKey:         "6LcZ-cUpAAAAABTy47-ryVJAsZFocXguqi_FgLlJ",
 		RecaptchaAction:          "store/cart/add",
 		Headless:             false,

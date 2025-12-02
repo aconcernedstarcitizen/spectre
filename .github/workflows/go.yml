@@ -5,7 +5,7 @@ name: Build and Release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
 
 jobs:
   build-and-release:
@@ -64,15 +64,26 @@ jobs:
 
     - name: Generate release tag
       id: tag
-      run: echo "release_tag=build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      run: |
+        BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+        if [ "$BRANCH_NAME" = "dev" ]; then
+          echo "release_tag=dev-build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          echo "is_dev=true" >> $GITHUB_OUTPUT
+        else
+          echo "release_tag=build-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          echo "is_dev=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
-        name: Release ${{ steps.tag.outputs.release_tag }}
+        name: ${{ steps.tag.outputs.is_dev == 'true' && '🚧 Dev Release' || 'Release' }} ${{ steps.tag.outputs.release_tag }}
+        prerelease: ${{ steps.tag.outputs.is_dev == 'true' }}
         body: |
-          Automated release from commit ${{ github.sha }}
+          ${{ steps.tag.outputs.is_dev == 'true' && '🚧 **DEVELOPMENT BUILD** - This is a pre-release build from the dev branch for testing new features.' || 'Automated release from the main branch.' }}
+
+          Commit: ${{ github.sha }}
 
           **Download Instructions:**
           1. Download the ZIP file for your platform below
@@ -92,10 +103,11 @@ jobs:
 
           **Features:**
           - ⚡ Ultra-fast API-based checkout (<1 second)
-          - 🔄 Aggressive retry system (50-200 attempts/second with 5-20ms delays)
-          - ⏰ Timed Sale Mode (automatic start 10 min before, continue 20 min after)
+          - 🌊 Multi-Wave Automated Mode (supports multiple sale windows per day)
+          - 🕐 Time Synchronization (syncs with network time servers for accuracy)
+          - 📅 User-Friendly Time Format (paste times like "2025-01-15 16:00 UTC")
+          - 🔄 Aggressive retry system with smart backoff
           - 🔐 reCAPTCHA v3 Enterprise support with fresh tokens per attempt
-          - 🤖 Smart rate limit handling (50-150ms backoff)
           - 💳 Automatic store credit application
           - 🌍 Multi-language support (English, Russian) - auto-detects system locale
         files: |

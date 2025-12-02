@@ -305,47 +305,46 @@ func TestNewFastCheckout(t *testing.T) {
 	}
 }
 
-// Test sale timing configuration validation
+// Test multi-wave configuration validation
 func TestSaleTimingConfiguration(t *testing.T) {
 	config := DefaultConfig()
 
 	// Test default values
-	if config.EnableSaleTiming != false {
-		t.Error("Expected EnableSaleTiming to be false by default")
+	if len(config.SaleWindows) != 0 {
+		t.Errorf("Expected SaleWindows to be empty by default, got %d items", len(config.SaleWindows))
 	}
 
-	if config.SaleStartTime != "" {
-		t.Errorf("Expected SaleStartTime to be empty by default, got '%s'", config.SaleStartTime)
+	if config.PreWaveActivationMinutes != 2 {
+		t.Errorf("Expected PreWaveActivationMinutes to be 2, got %d", config.PreWaveActivationMinutes)
 	}
 
-	if config.StartBeforeSaleMinutes != 10 {
-		t.Errorf("Expected StartBeforeSaleMinutes to be 10, got %d", config.StartBeforeSaleMinutes)
+	if config.PostWaveTimeoutMinutes != 5 {
+		t.Errorf("Expected PostWaveTimeoutMinutes to be 5, got %d", config.PostWaveTimeoutMinutes)
 	}
 
-	if config.ContinueAfterSaleMinutes != 20 {
-		t.Errorf("Expected ContinueAfterSaleMinutes to be 20, got %d", config.ContinueAfterSaleMinutes)
+	// Test that we can set sale windows
+	config.SaleWindows = []string{
+		"2025-01-15T16:00:00Z",
+		"2025-01-15T20:00:00Z",
+		"2025-01-16T00:00:00Z",
+	}
+	config.PreWaveActivationMinutes = 3
+	config.PostWaveTimeoutMinutes = 7
+
+	if len(config.SaleWindows) != 3 {
+		t.Errorf("Expected 3 sale windows, got %d", len(config.SaleWindows))
 	}
 
-	// Test that we can set sale timing
-	config.EnableSaleTiming = true
-	config.SaleStartTime = "2025-01-15T18:00:00Z"
-	config.StartBeforeSaleMinutes = 15
-	config.ContinueAfterSaleMinutes = 30
-
-	if !config.EnableSaleTiming {
-		t.Error("Failed to enable sale timing")
+	if config.SaleWindows[0] != "2025-01-15T16:00:00Z" {
+		t.Errorf("Expected first window '2025-01-15T16:00:00Z', got '%s'", config.SaleWindows[0])
 	}
 
-	if config.SaleStartTime != "2025-01-15T18:00:00Z" {
-		t.Errorf("Expected SaleStartTime '2025-01-15T18:00:00Z', got '%s'", config.SaleStartTime)
+	if config.PreWaveActivationMinutes != 3 {
+		t.Errorf("Expected PreWaveActivationMinutes 3, got %d", config.PreWaveActivationMinutes)
 	}
 
-	if config.StartBeforeSaleMinutes != 15 {
-		t.Errorf("Expected StartBeforeSaleMinutes 15, got %d", config.StartBeforeSaleMinutes)
-	}
-
-	if config.ContinueAfterSaleMinutes != 30 {
-		t.Errorf("Expected ContinueAfterSaleMinutes 30, got %d", config.ContinueAfterSaleMinutes)
+	if config.PostWaveTimeoutMinutes != 7 {
+		t.Errorf("Expected PostWaveTimeoutMinutes 7, got %d", config.PostWaveTimeoutMinutes)
 	}
 }
 

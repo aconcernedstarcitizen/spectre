@@ -51,6 +51,41 @@ recaptcha_site_key: "6LerBOgUAAAAAKPg6vsAFPTN66Woz-jBClxdQU-o"
 recaptcha_action: "store/cart/add"
 
 # ============================================================================
+# AUTOMATED SALE WAVE CONFIGURATION
+# ============================================================================
+# The app uses an automated multi-wave system:
+# - Syncs time with reliable time servers for accuracy
+# - Waits for each configured sale window
+# - Polls for product page availability before each wave
+# - Attempts checkout during each wave
+# - Moves to next wave if checkout fails
+# - Exits gracefully after successful purchase
+
+# List of sale windows in UTC timezone
+# REQUIRED: You must configure at least one sale window
+# Format: "YYYY-MM-DD HH:MM" (24-hour format, UTC timezone)
+#
+# Standard CIG wave times (example for January 15, 2025):
+# sale_windows:
+#   - "2025-01-15 16:00"  # Wave 1: 4:00 PM UTC
+#   - "2025-01-15 20:00"  # Wave 2: 8:00 PM UTC
+#   - "2025-01-16 00:00"  # Wave 3: 12:00 AM UTC (next day)
+#   - "2025-01-16 04:00"  # Wave 4: 4:00 AM UTC (next day)
+#   - "2025-01-16 08:00"  # Wave 5: 8:00 AM UTC (next day)
+#   - "2025-01-16 12:00"  # Wave 6: 12:00 PM UTC (next day)
+sale_windows: []
+
+# Minutes before wave to start polling for product page availability
+# The app will check if the product page returns 200 (not 404)
+# Default: 2 minutes before wave start
+pre_wave_activation_minutes: 2
+
+# Minutes after wave to continue attempting checkout before moving to next wave
+# If checkout fails, app will keep trying for this many minutes
+# Default: 5 minutes after wave start
+post_wave_timeout_minutes: 5
+
+# ============================================================================
 # CHECKOUT SETTINGS
 # ============================================================================
 
