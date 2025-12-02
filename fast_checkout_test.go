@@ -425,24 +425,6 @@ func TestRecaptchaConfiguration(t *testing.T) {
 }
 
 // Test viewport configuration for desktop
-func TestViewportConfiguration(t *testing.T) {
-	config := DefaultConfig()
-
-	// Should be desktop resolution by default
-	if config.ViewportWidth != 1920 {
-		t.Errorf("Expected ViewportWidth 1920, got %d", config.ViewportWidth)
-	}
-
-	if config.ViewportHeight != 1080 {
-		t.Errorf("Expected ViewportHeight 1080, got %d", config.ViewportHeight)
-	}
-
-	// Verify it's a reasonable desktop resolution
-	if config.ViewportWidth < 1024 || config.ViewportHeight < 768 {
-		t.Error("Viewport dimensions should be at least 1024x768 for desktop")
-	}
-}
-
 // Test reCAPTCHA token caching behavior
 func TestRecaptchaTokenCaching(t *testing.T) {
 	config := DefaultConfig()

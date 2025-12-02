@@ -81,9 +81,6 @@ min_delay_between: 0.5     # Minimum delay between actions (seconds)
 max_delay_between: 1.0     # Maximum delay between actions (seconds)
 checkout_ready_delay: 2    # Seconds to wait before starting checkout
 
-viewport_width: 1920       # Browser window width
-viewport_height: 1080      # Browser window height
-
 # CSS Selectors (only change if RSI updates their website)
 selectors:
     add_to_cart_button: .m-storeAction__button

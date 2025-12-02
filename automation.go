@@ -220,11 +220,9 @@ func (a *Automation) setupBrowser() error {
 func (a *Automation) waitForLogin() error {
 	fmt.Println(T("opening_for_login"))
 
-	targetURL := "https://robertsspaceindustries.com"
-	if a.config.ItemURL != "" {
-		targetURL = a.config.ItemURL
-		fmt.Printf(T("loading_product_page")+"\n", targetURL)
-	}
+	// ALWAYS open homepage first for login (not the item URL)
+	homepageURL := "https://robertsspaceindustries.com"
+	fmt.Printf(T("loading_homepage")+"\n", homepageURL)
 
 	var err error
 	a.page, err = stealth.Page(a.browser)
@@ -234,7 +232,7 @@ func (a *Automation) waitForLogin() error {
 
 	a.debugLog("✓ Stealth mode enabled (anti-bot detection)")
 
-	err = a.page.Navigate(targetURL)
+	err = a.page.Navigate(homepageURL)
 	if err != nil {
 		return fmt.Errorf("failed to navigate: %w", err)
 	}
@@ -246,57 +244,16 @@ func (a *Automation) waitForLogin() error {
 	if err != nil {
 		a.debugLog("Warning: Failed to set User-Agent: %v", err)
 	} else {
-		a.debugLog("User-Agent set to Chrome desktop")
-	}
-
-	err = a.page.SetViewport(&proto.EmulationSetDeviceMetricsOverride{
-		Width:  a.config.ViewportWidth,
-		Height: a.config.ViewportHeight,
-		DeviceScaleFactor: 1,
-		Mobile: false,
-	})
-	if err != nil {
-		a.debugLog("Warning: Failed to set viewport: %v", err)
-	} else {
-		a.debugLog("Viewport set to %dx%d (desktop)", a.config.ViewportWidth, a.config.ViewportHeight)
+		a.debugLog("User-Agent set to Chrome")
 	}
 
 	if err := a.page.WaitLoad(); err != nil {
 		return fmt.Errorf("page failed to load: %w", err)
 	}
 
-	if a.config.ItemURL != "" {
-		statusCode, err := a.page.Eval(`() => {
-			return window.performance?.getEntriesByType?.('navigation')?.[0]?.responseStatus || 200;
-		}`)
-		if err == nil {
-			status := statusCode.Value.Int()
-			if status == 404 {
-				return fmt.Errorf("product page not found (404). Please verify the URL is correct: %s", a.config.ItemURL)
-			} else if status >= 400 {
-				return fmt.Errorf("failed to load product page (HTTP %d)", status)
-			}
-			a.debugLog("Product page HTTP status: %d", status)
-		}
-
-		hasSKUData, err := a.page.Eval(`() => {
-			const skuDetailDiv = document.querySelector('[data-rsi-component="SkuDetailPage"]');
-			return skuDetailDiv !== null;
-		}`)
-		if err == nil && !hasSKUData.Value.Bool() {
-			return fmt.Errorf("page does not appear to be a valid product page (no SKU data found). URL: %s", a.config.ItemURL)
-		}
-
-		fmt.Println(T("product_page_loaded"))
-
-		// Extract and validate SKU BEFORE login prompt
-		if err := a.extractAndCacheSKU(); err != nil {
-			return err
-		}
-	}
-
 	fmt.Println(T("browser_configured"))
 
+	// Prompt user to login BEFORE trying to load item page
 	fmt.Println()
 	fmt.Println(T("login_required_header"))
 	fmt.Println()
@@ -324,6 +281,23 @@ func (a *Automation) waitForLogin() error {
 		}
 	}
 
+	// AFTER login, navigate to item URL and retry until it's available (not 404)
+	if a.config.ItemURL != "" {
+		fmt.Println()
+		fmt.Printf(T("navigating_to_product_page")+"\n", a.config.ItemURL)
+
+		if err := a.navigateToProductPageWithRetry(); err != nil {
+			return err
+		}
+
+		fmt.Println(T("product_page_loaded"))
+
+		// Extract and validate SKU AFTER successful navigation
+		if err := a.extractAndCacheSKU(); err != nil {
+			return err
+		}
+	}
+
 	if a.config.RecaptchaSiteKey != "" {
 		fmt.Println(T("recaptcha_preloading"))
 		a.preloadRecaptcha()
@@ -333,6 +307,91 @@ func (a *Automation) waitForLogin() error {
 	}
 
 	return nil
+}
+
+// navigateToProductPageWithRetry retries navigation to item URL until it's available (not 404)
+// This is critical for pre-sale scenarios where the product page doesn't exist yet
+func (a *Automation) navigateToProductPageWithRetry() error {
+	attemptNum := 0
+	for {
+		attemptNum++
+
+		// Navigate to the product page
+		err := a.page.Navigate(a.config.ItemURL)
+		if err != nil {
+			// Network error - retry after delay
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf("⚠️  Attempt %d: Navigation error - retrying in 2s...\n", attemptNum)
+				if attemptNum <= 3 {
+					fmt.Printf("   Error: %v\n", err)
+				}
+			}
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		// Wait for page to load
+		if err := a.page.WaitLoad(); err != nil {
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf("⚠️  Attempt %d: Page load error - retrying in 2s...\n", attemptNum)
+			}
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		// Check HTTP status code
+		statusCode, err := a.page.Eval(`() => {
+			return window.performance?.getEntriesByType?.('navigation')?.[0]?.responseStatus || 200;
+		}`)
+
+		if err == nil {
+			status := statusCode.Value.Int()
+
+			if status == 404 {
+				// 404 - Page doesn't exist yet, keep retrying
+				if attemptNum == 1 {
+					fmt.Println("⏳ Product page not available yet (404) - waiting for sale to go live...")
+					fmt.Println("💡 The app will keep retrying until the page is available")
+					fmt.Println()
+				}
+				if attemptNum%30 == 0 {
+					fmt.Printf("   Still waiting... (attempt %d, checking every 2s)\n", attemptNum)
+				}
+				time.Sleep(2 * time.Second)
+				continue
+			} else if status >= 400 {
+				// Other error status - this might be temporary
+				if attemptNum%10 == 0 || attemptNum <= 3 {
+					fmt.Printf("⚠️  Attempt %d: HTTP %d error - retrying in 2s...\n", attemptNum, status)
+				}
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			a.debugLog("Product page HTTP status: %d", status)
+		}
+
+		// Check if page has SKU data (validates it's actually a product page)
+		hasSKUData, err := a.page.Eval(`() => {
+			const skuDetailDiv = document.querySelector('[data-rsi-component="SkuDetailPage"]');
+			return skuDetailDiv !== null;
+		}`)
+
+		if err == nil && !hasSKUData.Value.Bool() {
+			// No SKU data - might be loading or wrong page
+			if attemptNum%10 == 0 || attemptNum <= 3 {
+				fmt.Printf("⚠️  Attempt %d: Page loaded but no SKU data found - retrying in 2s...\n", attemptNum)
+			}
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		// Success! Page is loaded and valid
+		if attemptNum > 1 {
+			fmt.Printf("✓ Product page is now available! (took %d attempts)\n", attemptNum)
+		}
+		return nil
+	}
 }
 
 func (a *Automation) buildInteractionHistory() {

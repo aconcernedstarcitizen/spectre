@@ -21,14 +21,6 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected PageLoadTimeout to be 30, got %d", config.PageLoadTimeout)
 	}
 
-	if config.ViewportWidth != 1920 {
-		t.Errorf("Expected ViewportWidth to be 1920, got %d", config.ViewportWidth)
-	}
-
-	if config.ViewportHeight != 1080 {
-		t.Errorf("Expected ViewportHeight to be 1080, got %d", config.ViewportHeight)
-	}
-
 	if config.RetryDurationSeconds != 300 {
 		t.Errorf("Expected RetryDurationSeconds to be 300, got %d", config.RetryDurationSeconds)
 	}

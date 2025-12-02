@@ -42,9 +42,6 @@ type Config struct {
 	RecaptchaSiteKey string `yaml:"recaptcha_site_key"`
 	RecaptchaAction  string `yaml:"recaptcha_action"`
 
-	ViewportWidth  int `yaml:"viewport_width"`
-	ViewportHeight int `yaml:"viewport_height"`
-
 	AutoApplyCredit bool `yaml:"auto_apply_credit"`
 
 	SkipAddToCart bool `yaml:"skip_add_to_cart"`
@@ -95,8 +92,6 @@ func DefaultConfig() *Config {
 		EnableSaleTiming:         false, // Disabled by default
 		RecaptchaSiteKey:         "6LcZ-cUpAAAAABTy47-ryVJAsZFocXguqi_FgLlJ",
 		RecaptchaAction:          "store/cart/add",
-		ViewportWidth:            1920,
-		ViewportHeight:           1080,
 		Headless:             false,
 		KeepBrowserOpen:      true,
 		AutoApplyCredit:      true,

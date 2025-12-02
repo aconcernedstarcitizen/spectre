@@ -295,17 +295,18 @@ func (f *FastCheckout) GetSKUFromURL(itemURL string) (string, error) {
 
 // GetSKUFromActivePage extracts SKU ID from the SKU slug (cached from before login)
 // The slug was already extracted and validated before login, so we just convert it to ID
+// If not cached, falls back to HTTP-based extraction (no incognito browser needed)
 func (f *FastCheckout) GetSKUFromActivePage(automation *Automation) (string, error) {
-	// Use cached SKU slug if available (extracted before login)
+	// Use cached SKU slug if available (extracted before login via HTTP)
 	if automation != nil && automation.cachedSKU != "" {
 		fmt.Printf(T("sku_using_cached_slug")+"\n", automation.cachedSKU)
 		return f.getSKUIDFromSlug(automation.cachedSKU)
 	}
 
-	// Fallback: Extract fresh if not cached (shouldn't happen in normal flow)
-	fmt.Println(T("sku_extracting_current_page"))
+	// Fallback: Extract fresh using HTTP if not cached
+	fmt.Println(T("sku_extracting_via_http"))
 
-	if automation == nil || automation.page == nil || automation.browser == nil {
+	if automation == nil || automation.page == nil {
 		return "", fmt.Errorf(T("sku_browser_not_available"))
 	}
 
@@ -316,57 +317,47 @@ func (f *FastCheckout) GetSKUFromActivePage(automation *Automation) (string, err
 	}
 	itemURL := currentURL.Value.Str()
 
-	// Create incognito browser context in the existing browser
-	// This ensures SKU is visible even when user is logged in
-	incognito, err := automation.browser.Incognito()
+	// Use HTTP client to fetch page (works regardless of login state)
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", itemURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create incognito context: %w", err)
-	}
-	defer incognito.MustClose()
-
-	// Navigate to the item page in incognito
-	incognitoPage := incognito.MustPage()
-	defer incognitoPage.MustClose()
-	incognitoPage = incognitoPage.Timeout(30 * time.Second)
-
-	if err := incognitoPage.Navigate(itemURL); err != nil {
-		return "", fmt.Errorf("failed to navigate to item page in incognito: %w", err)
+		return "", fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	if err := incognitoPage.WaitLoad(); err != nil {
-		return "", fmt.Errorf("failed to wait for page load in incognito: %w", err)
+	// Set headers to mimic browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch page via HTTP: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("page returned HTTP %d: %s", resp.StatusCode, itemURL)
 	}
 
-	// Extract SKU slug from incognito page using JavaScript
-	incognitoSkuSlug, err := incognitoPage.Eval(`() => {
-		const div = document.querySelector('[data-rsi-component="SkuDetailPage"]');
-		if (!div) return null;
-		const props = div.getAttribute('data-rsi-component-props');
-		if (!props) return null;
-		try {
-			const parsed = JSON.parse(props);
-			return parsed.skuSlug || null;
-		} catch (e) {
-			return null;
+	// Read response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read page body: %w", err)
+	}
+	htmlContent := string(bodyBytes)
+
+	// Extract SKU slug using regex
+	re := regexp.MustCompile(`"skuSlug":\s*"([^"]+)"`)
+	matches := re.FindStringSubmatch(htmlContent)
+
+	if len(matches) > 1 {
+		skuSlugStr := matches[1]
+		fmt.Printf(T("sku_extracted_http")+"\n", skuSlugStr)
+		// Cache for future use
+		if automation != nil {
+			automation.cachedSKU = skuSlugStr
 		}
-	}`)
-
-	if err == nil && incognitoSkuSlug.Value.Str() != "" && incognitoSkuSlug.Value.Str() != "null" {
-		skuSlugStr := incognitoSkuSlug.Value.Str()
-		fmt.Printf(T("sku_extracted_incognito")+"\n", skuSlugStr)
 		return f.getSKUIDFromSlug(skuSlugStr)
-	}
-
-	// Fallback: Try HTML regex on incognito page
-	incognitoHTML, htmlErr := incognitoPage.HTML()
-	if htmlErr == nil {
-		re := regexp.MustCompile(`"skuSlug":\s*"([^"]+)"`)
-		matches := re.FindStringSubmatch(incognitoHTML)
-		if len(matches) > 1 {
-			skuSlugStr := matches[1]
-			fmt.Printf(T("sku_extracted_incognito_html")+"\n", skuSlugStr)
-			return f.getSKUIDFromSlug(skuSlugStr)
-		}
 	}
 
 	return "", fmt.Errorf(T("sku_slug_not_found"))
@@ -2004,6 +1995,71 @@ func (f *FastCheckout) RunFastCheckout(automation *Automation) error {
 		return fmt.Errorf("failed to query cart info: %w", err)
 	}
 
+	// FAST PATH: If cart already has correct item with credits applied ($0 total),
+	// skip directly to final validation step. This supports --skip-cart for repeat runs.
+	if len(cartInfo.Items) == 1 &&
+		cartInfo.Items[0].SKUID == skuID &&
+		cartInfo.Items[0].Quantity == 1 &&
+		cartInfo.Total == 0 {
+
+		fmt.Println(T("cart_ready_to_checkout"))
+		fmt.Printf(T("cart_ready_item")+"\n", cartInfo.Items[0].Name)
+		fmt.Println(T("cart_ready_skipping_to_validation"))
+
+		// Get/cache the billing address
+		if f.cachedAddressID == "" {
+			var addressID string
+			err := retryOnNetworkError(func() error {
+				var err error
+				addressID, err = f.GetDefaultBillingAddress()
+				return err
+			}, "Get Default Billing Address")
+			if err != nil {
+				return fmt.Errorf("failed to get billing address: %w", err)
+			}
+			f.cachedAddressID = addressID
+		}
+
+		// Move to billing/addresses step
+		fmt.Println(T("checkout_moving_billing"))
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Billing Step")
+		if err != nil {
+			return fmt.Errorf("failed to move to billing/addresses: %w", err)
+		}
+
+		// Assign billing address
+		err = retryOnNetworkError(func() error {
+			return f.AssignBillingAddress(f.cachedAddressID)
+		}, "Assign Billing Address")
+		if err != nil {
+			return fmt.Errorf("failed to assign billing address: %w", err)
+		}
+
+		// Complete the order
+		if !f.config.DryRun {
+			fmt.Println(T("checkout_completing_order"))
+			err := retryOnNetworkError(func() error {
+				return f.ValidateCart(automation)
+			}, "Validate Cart")
+			if err != nil {
+				return fmt.Errorf("failed to validate cart: %w", err)
+			}
+			fmt.Println(T("checkout_order_completed"))
+		} else {
+			fmt.Println(T("checkout_dry_run_stop"))
+		}
+
+		elapsed := time.Since(startTime)
+		fmt.Println(T("checkout_total_time"), elapsed)
+		fmt.Printf(T("checkout_target_vs_actual")+"\n", elapsed)
+		if elapsed.Milliseconds() < 1000 {
+			fmt.Println(T("checkout_achieved_subsecond"))
+		}
+		return nil
+	}
+
 	// Validate existing cart contents before adding
 	shouldAdd, err := f.ValidateCartContents(skuID, cartInfo.Total, cartInfo.Items)
 	if err != nil {
@@ -2166,6 +2222,9 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	startRetryTime := saleTime.Add(-time.Duration(f.config.StartBeforeSaleMinutes) * time.Minute)
 	endRetryTime := saleTime.Add(time.Duration(f.config.ContinueAfterSaleMinutes) * time.Minute)
 
+	// Track overall timing from the start
+	startTime := time.Now()
+
 	fmt.Println("╔═══════════════════════════════════════════════════════════╗")
 	fmt.Println("║           TIMED SALE MODE - AGGRESSIVE RETRY              ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════╝")
@@ -2214,6 +2273,54 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 		return fmt.Errorf("failed to query initial cart info: %w", err)
 	}
 
+	// FAST PATH: If cart already has correct item with credits applied ($0 total),
+	// skip directly to final validation step. This supports --skip-cart for repeat runs.
+	if len(preCheckCartInfo.Items) == 1 &&
+		preCheckCartInfo.Items[0].SKUID == skuID &&
+		preCheckCartInfo.Items[0].Quantity == 1 &&
+		preCheckCartInfo.Total == 0 {
+
+		fmt.Println(T("cart_ready_to_checkout"))
+		fmt.Printf(T("cart_ready_item")+"\n", preCheckCartInfo.Items[0].Name)
+		fmt.Println(T("cart_ready_skipping_to_validation"))
+		fmt.Println()
+
+		// Move to billing/addresses step
+		fmt.Println("➡️  Moving to billing/addresses step...")
+		err := retryOnNetworkError(func() error {
+			return f.NextStep()
+		}, "Move to Billing Step")
+		if err != nil {
+			return fmt.Errorf("failed to move to billing/addresses: %w", err)
+		}
+
+		// Assign billing address
+		err = retryOnNetworkError(func() error {
+			return f.AssignBillingAddress(f.cachedAddressID)
+		}, "Assign Billing Address")
+		if err != nil {
+			return fmt.Errorf("failed to assign billing address: %w", err)
+		}
+
+		// Complete the order (use deadline if in timed mode)
+		if !f.config.DryRun {
+			fmt.Println("🎯 Completing order with aggressive retries until sale window ends...")
+			err := retryOnNetworkError(func() error {
+				return f.ValidateCartWithDeadline(automation, endRetryTime)
+			}, "Validate Cart")
+			if err != nil {
+				return fmt.Errorf("failed to validate cart: %w", err)
+			}
+			fmt.Println("\n✅ ORDER COMPLETED!")
+		} else {
+			fmt.Println("🧪 DRY RUN - Stopping before final submission")
+		}
+
+		totalElapsed := time.Since(startTime)
+		fmt.Printf("\n⚡ Total time from start to completion: %v\n", totalElapsed)
+		return nil
+	}
+
 	// Validate existing cart contents before Phase 1
 	shouldAdd, err := f.ValidateCartContents(skuID, preCheckCartInfo.Total, preCheckCartInfo.Items)
 	if err != nil {
@@ -2238,9 +2345,6 @@ func (f *FastCheckout) RunTimedSaleCheckout(automation *Automation) error {
 	} else {
 		fmt.Println("⚡ Already in retry window - starting immediately!")
 	}
-
-	// Track overall timing
-	startTime := time.Now()
 
 	// Phase 1: Aggressive add-to-cart retries (only if validation says to add)
 	if shouldAdd {
