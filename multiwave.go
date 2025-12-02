@@ -61,9 +61,45 @@ func (mwo *MultiWaveOrchestrator) Run() error {
 	}
 	fmt.Println()
 
-	// Step 3: Process each wave
+	// Step 3: Determine which wave to start from based on current time
+	now := mwo.timeSync.Now()
+	postWaveDuration := time.Duration(mwo.config.PostWaveTimeoutMinutes) * time.Minute
+
+	startWaveIndex := -1
 	for i, waveTime := range saleWindows {
+		waveEndTime := waveTime.Add(postWaveDuration)
+
+		if now.Before(waveEndTime) {
+			// This wave is still relevant (either upcoming or active)
+			startWaveIndex = i
+			break
+		}
+	}
+
+	// Check if all waves have passed
+	if startWaveIndex == -1 {
+		fmt.Println()
+		fmt.Println(T("multiwave_all_waves_passed"))
+		fmt.Printf(T("multiwave_last_wave_was")+"\n", len(saleWindows), saleWindows[len(saleWindows)-1].Local().Format("15:04:05 MST"))
+		fmt.Println(T("multiwave_exiting_no_waves"))
+		return fmt.Errorf("all sale waves have ended")
+	}
+
+	// Inform user if we're skipping past waves
+	if startWaveIndex > 0 {
+		fmt.Println()
+		fmt.Printf(T("multiwave_skipping_past_waves")+"\n", startWaveIndex)
+		for i := 0; i < startWaveIndex; i++ {
+			fmt.Printf("   • Wave %d (%s) - Ended\n", i+1, saleWindows[i].Local().Format("15:04:05 MST"))
+		}
+		fmt.Println()
+	}
+
+	// Step 4: Process waves starting from the first relevant wave
+	for i := startWaveIndex; i < len(saleWindows); i++ {
 		waveNum := i + 1
+		waveTime := saleWindows[i]
+
 		fmt.Printf(T("multiwave_wave_header")+"\n", waveNum, len(saleWindows))
 		fmt.Println()
 
@@ -79,11 +115,23 @@ func (mwo *MultiWaveOrchestrator) Run() error {
 			return nil
 		}
 
-		// If not the last wave, prepare for next
+		// Wave failed - check if there's a next wave
 		if waveNum < len(saleWindows) {
+			nextWaveTime := saleWindows[i+1]
+			now := mwo.timeSync.Now()
+			waitDuration := nextWaveTime.Sub(now)
+
 			fmt.Println()
 			fmt.Printf(T("multiwave_wave_failed")+"\n", waveNum)
 			fmt.Printf(T("multiwave_moving_to_next")+"\n", waveNum+1)
+			fmt.Printf(T("multiwave_next_wave_in")+"\n", waitDuration.Round(time.Second))
+			fmt.Printf(T("multiwave_staying_dormant")+"\n")
+			fmt.Println()
+		} else {
+			// This was the last wave
+			fmt.Println()
+			fmt.Printf(T("multiwave_wave_failed")+"\n", waveNum)
+			fmt.Println(T("multiwave_was_last_wave"))
 			fmt.Println()
 		}
 	}
