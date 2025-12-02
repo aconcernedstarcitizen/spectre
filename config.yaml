@@ -6,9 +6,10 @@
 # ============================================================================
 
 # The URL of the ship/item you want to purchase
-# Example: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Hull-E-10-Year"
+# URL must have "/pledge/Standalone-Ships/" in it, e.g. it must be the ship SALE page, NOT the ship INFO page.
+# Example: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Idris-P"
 # Leave empty to specify via command line: ./specter --url "..."
-item_url: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Hull-E-10-Year"
+item_url: "https://robertsspaceindustries.com/en/pledge/Standalone-Ships/Idris-P"
 
 # Browser settings
 browser_profile_path: ""  # Leave empty to use default location (~/.specter/browser-profile)
@@ -52,22 +53,49 @@ recaptcha_action: "store/cart/add"
 # List of sale windows in UTC timezone
 # REQUIRED: You must configure at least one sale window
 # Format: "YYYY-MM-DD HH:MM" (24-hour format, UTC timezone)
-#
-# Standard CIG wave times (example for January 15, 2025):
-# sale_windows:
-#   - "2025-01-15 16:00"  # Wave 1: 4:00 PM UTC
-#   - "2025-01-15 20:00"  # Wave 2: 8:00 PM UTC
-#   - "2025-01-16 00:00"  # Wave 3: 12:00 AM UTC (next day)
-#   - "2025-01-16 04:00"  # Wave 4: 4:00 AM UTC (next day)
-#   - "2025-01-16 08:00"  # Wave 5: 8:00 AM UTC (next day)
-#   - "2025-01-16 12:00"  # Wave 6: 12:00 PM UTC (next day)
 sale_windows:
-   - "2025-01-15 16:00"  # Wave 1: 4:00 PM UTC
-   - "2025-01-15 20:00"  # Wave 2: 8:00 PM UTC
-   - "2025-01-16 00:00"  # Wave 3: 12:00 AM UTC (next day)
-   - "2025-01-16 04:00"  # Wave 4: 4:00 AM UTC (next day)
-   - "2025-01-16 08:00"  # Wave 5: 8:00 AM UTC (next day)
-   - "2025-01-16 12:00"  # Wave 6: 12:00 PM UTC (next day)
+   # IAE 2955 example: Constellation Phoenix
+   - "2025-11-20 16:00"
+   - "2025-11-20 20:00"
+   - "2025-11-21 00:00"
+   - "2025-11-21 04:00"
+   - "2025-11-21 08:00"
+   - "2025-11-21 12:00"
+  # IAE 2955 example: 890 Jump
+   - "2025-11-21 16:00"
+   - "2025-11-21 20:00"
+   - "2025-11-22 00:00"
+   - "2025-11-22 04:00"
+   - "2025-11-22 08:00"
+   - "2025-11-22 12:00"
+  # IAE 2955 example: Kraken, Kraken Privateer
+   - "2025-11-22 16:00"
+   - "2025-11-22 20:00"
+   - "2025-11-23 00:00"
+   - "2025-11-23 04:00"
+   - "2025-11-23 08:00"
+   - "2025-11-23 12:00"
+  # IAE 2955 example: Hull E
+   - "2025-11-24 16:00"
+   - "2025-11-24 20:00"
+   - "2025-11-25 00:00"
+   - "2025-11-25 04:00"
+   - "2025-11-25 08:00"
+   - "2025-11-25 12:00"
+  # IAE 2955 example: Pioneer
+   - "2025-11-26 16:00"
+   - "2025-11-26 20:00"
+   - "2025-11-27 00:00"
+   - "2025-11-27 04:00"
+   - "2025-11-27 08:00"
+   - "2025-11-27 12:00"
+  # IAE 2955 example: Idris-P, Javelin
+   - "2025-11-28 16:00"
+   - "2025-11-28 20:00"
+   - "2025-11-29 00:00"
+   - "2025-11-29 04:00"
+   - "2025-11-29 08:00"
+   - "2025-11-29 12:00"
 
 # Minutes before wave to start polling for product page availability
 # The app will check if the product page returns 200 (not 404)
