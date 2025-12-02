@@ -101,15 +101,30 @@ jobs:
           - specter-windows-amd64.zip: Windows package
           - specter-linux-amd64.zip: Linux package
 
-          **Features:**
-          - ⚡ Ultra-fast API-based checkout (<1 second)
-          - 🌊 Multi-Wave Automated Mode (supports multiple sale windows per day)
-          - 🕐 Time Synchronization (syncs with network time servers for accuracy)
-          - 📅 User-Friendly Time Format (paste times like "2025-01-15 16:00 UTC")
-          - 🔄 Aggressive retry system with smart backoff
-          - 🔐 reCAPTCHA v3 Enterprise support with fresh tokens per attempt
-          - 💳 Automatic store credit application
-          - 🌍 Multi-language support (English, Russian) - auto-detects system locale
+          **Key Features:**
+          - ⚡ **Ultra-fast API-based checkout** - Completes purchase in under 1 second once item is in cart
+          - 🌊 **Smart Multi-Wave Mode** - Start at ANY time, app automatically skips past waves and finds the next relevant one
+          - 🕐 **Precise Time Synchronization** - Syncs with Google, Cloudflare, and Amazon time servers for accurate wave timing
+          - 📅 **User-Friendly Time Format** - Just paste times like "2025-01-15 16:00 UTC" from CIG announcements
+          - 🎯 **Smart Wave Detection** - Automatically determines which wave to process based on current time
+          - 💤 **Dormant State Management** - Stays dormant between waves, no need to restart the app
+          - 🔄 **Intelligent Retry System** - Smart backoff for rate limits, specific delays for different error types
+          - 🔐 **reCAPTCHA v3 Enterprise** - Generates fresh tokens for each cart addition attempt
+          - 💳 **Automatic Store Credit Application** - No manual steps needed
+          - 🌍 **Multi-language Support** - English & Russian with automatic system locale detection
+
+          **How It Works:**
+          - **Time-Based Wave Selection:** App compares current time against all wave end times to determine starting point
+          - **Pre-Wave Polling:** Starts checking product page 2 minutes before each wave (configurable)
+          - **Post-Wave Timeout:** Continues trying for 5 minutes after wave starts (configurable)
+          - **Automatic Transitions:** Moves to next wave on failure, exits gracefully on success
+          - **Past Wave Skipping:** If you start late, app automatically skips waves that already ended
+          - **All Waves Ended Detection:** Informs user if all waves have passed and exits gracefully
+
+          **Important Notes:**
+          - ✅ **Works ONLY with store credit** - Cannot process credit card or PayPal payments
+          - ✅ **Single ship purchases only** - Designed for buying one ship at a time
+          - 📋 **Setup required:** Configure sale_windows in config.yaml with wave times before running
         files: |
           specter-macos-amd64.zip
           specter-macos-arm64.zip
