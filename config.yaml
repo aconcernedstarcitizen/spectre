@@ -107,6 +107,12 @@ pre_wave_activation_minutes: 2
 # Default: 5 minutes after wave start
 post_wave_timeout_minutes: 5
 
+# Milliseconds delay between polling attempts for product page availability
+# These create variable delays during pre-wave polling to avoid detection
+# Default: 29-139ms (randomized between these values)
+polling_delay_min_ms: 29
+polling_delay_max_ms: 139
+
 # ============================================================================
 # CHECKOUT SETTINGS
 # ============================================================================

@@ -37,6 +37,8 @@ type Config struct {
 	SaleWindows              []string `yaml:"sale_windows"`                // Sale times in RFC3339 format (e.g., ["2025-01-15T16:00:00Z", "2025-01-15T20:00:00Z"])
 	PreWaveActivationMinutes int      `yaml:"pre_wave_activation_minutes"` // Minutes before wave to start polling for product page (default: 2)
 	PostWaveTimeoutMinutes   int      `yaml:"post_wave_timeout_minutes"`   // Minutes after wave to keep trying before moving to next wave (default: 5)
+	PollingDelayMinMs        int      `yaml:"polling_delay_min_ms"`        // Minimum delay between polling attempts (default: 29ms)
+	PollingDelayMaxMs        int      `yaml:"polling_delay_max_ms"`        // Maximum delay between polling attempts (default: 139ms)
 
 	RecaptchaSiteKey string `yaml:"recaptcha_site_key"`
 	RecaptchaAction  string `yaml:"recaptcha_action"`
@@ -88,6 +90,8 @@ func DefaultConfig() *Config {
 		SaleWindows:              []string{}, // Sale windows (required: use --waves-date YYYY-MM-DD or configure in config.yaml)
 		PreWaveActivationMinutes: 2,          // Start polling 2 minutes before wave
 		PostWaveTimeoutMinutes:   5,          // Continue 5 minutes after wave before moving to next
+		PollingDelayMinMs:        29,         // Polling delay: 29-139ms (human-like, variable timing)
+		PollingDelayMaxMs:        139,
 		RecaptchaSiteKey:         "6LcZ-cUpAAAAABTy47-ryVJAsZFocXguqi_FgLlJ",
 		RecaptchaAction:          "store/cart/add",
 		Headless:             false,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -12,6 +13,7 @@ type MultiWaveOrchestrator struct {
 	timeSync     *TimeSync
 	automation   *Automation
 	fastCheckout *FastCheckout
+	rand         *rand.Rand
 }
 
 // NewMultiWaveOrchestrator creates a new multi-wave orchestrator
@@ -21,6 +23,7 @@ func NewMultiWaveOrchestrator(config *Config, automation *Automation, fastChecko
 		timeSync:     NewTimeSync(config.DebugMode),
 		automation:   automation,
 		fastCheckout: fastCheckout,
+		rand:         rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -275,8 +278,11 @@ func (mwo *MultiWaveOrchestrator) pollForProductPage(waveTime time.Time) (time.T
 			}
 		}
 
-		// Sleep before next attempt (1 second)
-		time.Sleep(1 * time.Second)
+		// Sleep before next attempt (variable millisecond delay for human-like timing)
+		minDelay := mwo.config.PollingDelayMinMs
+		maxDelay := mwo.config.PollingDelayMaxMs
+		delayMs := minDelay + mwo.rand.Intn(maxDelay-minDelay+1)
+		time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	}
 }
 
